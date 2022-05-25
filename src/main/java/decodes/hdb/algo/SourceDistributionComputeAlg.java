@@ -79,7 +79,7 @@ public class SourceDistributionComputeAlg
     PropertySpec[] specs =
             {
                     new PropertySpec("ignore_partials", PropertySpec.BOOLEAN,
-                            "(default=true) If true, then only compute coefficients for years with all 12 months."),
+                            "(default=true) If false, then attempt to compute coefficients for years without all 12 months. Not recommended."),
                     new PropertySpec("rounding", PropertySpec.BOOLEAN,
                             "(default=false) If true, then rounding is done on the output value."),
                     new PropertySpec("validation_flag", PropertySpec.STRING,
@@ -139,10 +139,10 @@ public class SourceDistributionComputeAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
-      if ( !loadappPattern.matcher( estimation_process ).matches()) {
+        if ( !loadappPattern.matcher( estimation_process ).matches()) {
           warning("Loading application name not valid: "+estimation_process);
           return;
-      }
+        }
 
         query = null;
         count = 0;
@@ -185,11 +185,11 @@ public class SourceDistributionComputeAlg
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
                 _aggregatePeriodBegin + " SDI: " + getSDI("input"));
         do_setoutput = true;
-//
+
         // get the input and output parameters and see if its model data
         ParmRef parmRef = getParmRef("input");
         if (parmRef == null) {
-            warning("Unknown aggregate control output variable 'INPUT'");
+            warning("Unknown variable 'INPUT'");
             return;
         }
 
@@ -203,8 +203,7 @@ public class SourceDistributionComputeAlg
 
         parmRef = getParmRef("output1");
         if (parmRef == null)
-            warning("Unknown aggregate control output variable 'OUTPUT'");
-//
+            warning("Unknown output variable 'OUTPUT'");
 
         TimeZone tz = TimeZone.getTimeZone("GMT");
         GregorianCalendar cal = new GregorianCalendar(tz);
@@ -212,22 +211,20 @@ public class SourceDistributionComputeAlg
         cal1.setTime(_aggregatePeriodBegin);
         cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
-
-//
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
         SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
         sdf.setTimeZone(
                 TimeZone.getTimeZone(
                         DecodesSettings.instance().aggregateTimeZone));
-//                        DbCompConfig.instance().getAggregateTimeZone()));
+
         String status;
         DataObject dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         DBAccess db = new DBAccess(conn);
         RBASEUtils rbu = new RBASEUtils(dbobj,conn);
-//
+
         String require_12_clause = "";
         if (ignore_partials)
         {
@@ -272,12 +269,11 @@ public class SourceDistributionComputeAlg
         ArrayList<Object> mons  = (ArrayList<Object>) dbobj.get("mon");
         ArrayList<Object> coeffs = (ArrayList<Object>) dbobj.get("coef");
 
-//
         //  delete any existing resultant value if not enough values returned
         if (mons.size() != 12)
         {
             debug3(comp.getAlgorithmName() + "-" + alg_ver + " Aborted: not enough month values " + _aggregatePeriodBegin + " SDI: " + getSDI("input"));
-            do_setoutput = false;
+            do_setoutput = false; // something went wrong, delete outputs
         }
 
 //              otherwise we have some records so continue...
@@ -313,8 +309,6 @@ public class SourceDistributionComputeAlg
                 deleteOutput(output,cal.getTime());
             }
         }
-
-
 
 //AW:AFTER_TIMESLICES_END
     }
