@@ -10,6 +10,7 @@ import decodes.tsdb.DbCompException;
 import decodes.tsdb.DbIoException;
 import decodes.tsdb.VarFlags;
 import decodes.tsdb.algo.AWAlgoType;
+import decodes.util.PropertySpec;
 import decodes.tsdb.CTimeSeries;
 import decodes.tsdb.ParmRef;
 import ilex.var.TimedVariable;
@@ -20,6 +21,8 @@ import decodes.tsdb.IntervalIncrement;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.Iterator;
+import java.util.TimeZone;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -45,22 +48,25 @@ public class CULPowerTemporalDisagg
 {
 //AW:INPUTS
 	public double AnnualInput;	//AW:TYPECODE=i
-	String _inputNames[] = { "AnnualInput" };
+	public double CoefficientInput;
+	String _inputNames[] = { "AnnualInput" , "CoefficientInput"};
 //AW:INPUTS_END
 
 //AW:LOCALVARS
 	ParmRef Annual_iref = null;
-	String Annual_iintv = null;
-	IntervalIncrement Annual_iintvii = null;
-	
-	ParmRef oref = null;
-	String ointv = null;
-	IntervalIncrement ointvii = null;
+	ParmRef Coefficient_iref = null;
 	
 	DbKey compID = null;
-	DbKey SDI = null;
-	
+	DbKey CUL_SDI = null;
+	DbKey Coeff_SDI = null;
+
 	Connection conn = null;
+	
+    PropertySpec[] specs =
+        {
+        		new PropertySpec("coeff_year", PropertySpec.INT,
+                        "(1985) What year to write coefficients into"),
+        };
 
 //AW:LOCALVARS_END
 
@@ -70,7 +76,8 @@ public class CULPowerTemporalDisagg
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
-	String _propertyNames[] = {  };
+    public Integer coeff_year = 1985;
+	String _propertyNames[] = { "coeff_year" };
 //AW:PROPERTIES_END
 
 	// Allow javac to generate a no-args constructor.
@@ -98,15 +105,12 @@ public class CULPowerTemporalDisagg
 	{
 //AW:BEFORE_TIMESLICES
 		Annual_iref = getParmRef("AnnualInput");
-		Annual_iintv = Annual_iref.compParm.getInterval();
-		Annual_iintvii = IntervalCodes.getIntervalCalIncr(Annual_iintv);
-		
-		oref = getParmRef("MonthlyOutput");
-		ointv = oref.compParm.getInterval();
-		ointvii = IntervalCodes.getIntervalCalIncr(ointv);
+		Coefficient_iref = getParmRef("CoefficientInput");
 		
 		compID = comp.getId();
-		SDI = Annual_iref.timeSeries.getSDI();
+		CUL_SDI = Annual_iref.timeSeries.getSDI();
+		Coeff_SDI = Coefficient_iref.timeSeries.getSDI();
+        
 //AW:BEFORE_TIMESLICES_END
 	}
 
@@ -124,68 +128,6 @@ public class CULPowerTemporalDisagg
 		throws DbCompException
 	{
 //AW:TIMESLICE
-		
-		ResultSet MonthlySourceData = null;
-		Statement stmt = null;
-		double MonthSourceSum = 0;
-		ArrayList<Integer> MonthsWithSource = new ArrayList<Integer>();
-		
-		// Iteration goes from time of THIS input up to (but not including)
-		// time of NEXT input.
-		Date startT = new Date(_timeSliceBaseTime.getTime());
-		aggCal.setTime(startT);
-		aggCal.add(Annual_iintvii.getCalConstant(), Annual_iintvii.getCount());
-		Date endT = aggCal.getTime();
-		aggCal.setTime(startT);
-		
-		// Is this line okay with the new connection pooling?
-		conn = tsdb.getConnection();
-
-		// Get monthly source data
-		
-//		System.out.println("--------- NEW TIMESLICE ---------");
-//		System.out.println(startT);
-		
-		// Select monthly data with the same sdi within the current year, that doesn't come from this computation
-		String q = "SELECT * FROM r_base WHERE"
-				+ " site_datatype_id = " + SDI.getValue()
-				+ " AND interval = 'month'"
-				+ " AND computation_id != " + compID.getValue()
-				+ " AND start_date_time >= '" + new java.sql.Date(startT.getTime()) + "'"
-				+ " AND end_date_time <= '" + new java.sql.Date(endT.getTime()) + "'";
-		
-		try {
-			stmt = conn.createStatement();
-			MonthlySourceData = stmt.executeQuery(q);
-			
-			while(MonthlySourceData.next())
-			{
-				MonthSourceSum += MonthlySourceData.getDouble("value");
-				MonthsWithSource.add(MonthlySourceData.getDate("start_date_time").getMonth());
-			}
-		} catch (SQLException e) {
-			// improve this
-			System.out.println("query didn't work");
-		}
-
-		if(MonthsWithSource.size() < 12)
-		{
-			for(Date t = startT; t.before(endT);
-					aggCal.add(ointvii.getCalConstant(), ointvii.getCount()),
-					t = aggCal.getTime())
-				{
-					// Would like to improve this. right now monthswithsource contains integer month numbers, not full dates
-					// Struggled with the difference between java.util.date used by opendcs and java.sql.date returned by the query
-					if(!MonthsWithSource.contains(t.getMonth()))
-					{
-						// set monthly output for months that don't already have monthly source data
-						// placeholder function until we figure out where to store/how to calc distributions
-						setOutput(MonthlyOutput,(AnnualInput - MonthSourceSum) / (12 - MonthsWithSource.size()),t);
-					}
-				}
-		}
-
-
 //AW:TIMESLICE_END
 	}
 
@@ -200,10 +142,136 @@ public class CULPowerTemporalDisagg
 		// For TimeSlice algorithms this is done once after all slices.
 		// For Aggregating algorithms, this is done after each aggregate
 		// period.
-		setOutputUnitsAbbr("output", getInputUnitsAbbr("input"));
+		
+		
+		// Query related variables
+	    String status;
+	    String query;
+	    DataObject dbobj = new DataObject();
+		conn = tsdb.getConnection();
+		DBAccess db = new DBAccess(conn);
+		
+      
+        // Get IDs of compedit and cu_estimation process loading application
+		// For now, source data is anything that doesn't come from either of these loading apps
+        query = "SELECT loading_application_id FROM hdb_loading_application"
+        		+ " WHERE loading_application_name = 'compedit'";  
+
+        status = this.doQuery(query, dbobj, db);
+        int compEdit = Integer.valueOf((String) dbobj.get("loading_application_id"));
+        
+        query = "SELECT loading_application_id FROM hdb_loading_application"
+        		+ " WHERE loading_application_name = 'CU_estimation_process'";  
+
+        status = this.doQuery(query, dbobj, db);
+        int estimationApp = Integer.valueOf((String) dbobj.get("loading_application_id"));
+        
+        // Get SDI of monthly coefficients
+        // This might need to be expanded for future sectors where coefficients might be stored in a site_coeff table instead of computed
+        
+        
+        // Get years to disagg (years with an annual source data point)
+        // May need to get more thorough for this in other sectors
+        query = "SELECT EXTRACT(YEAR FROM start_date_time) year, value FROM r_base"
+				+ " WHERE site_datatype_id = " + CUL_SDI.getValue()
+				+ " AND interval = 'year'"
+				+ " AND loading_application_id != " + compEdit
+				+ " AND loading_application_id != " + estimationApp
+        		+ " ORDER BY EXTRACT(YEAR FROM start_date_time) ASC";
+        
+        status = this.doQuery(query, dbobj, db);
+        ArrayList<Object> YearstoDisagg = (ArrayList<Object>) dbobj.get("year");
+        ArrayList<Object> AnnualSourceData = (ArrayList<Object>) dbobj.get("value");
+        
+		// Get monthly coefficients
+        // Right now getting all rows works, but should probably make it smarter to look at a specific year, or at least confirm there are 12 values
+		query = "SELECT value FROM r_base"
+				+ " WHERE site_datatype_id = " + Coeff_SDI.getValue()
+				+ " ORDER BY start_date_time";
+		status = this.doQuery(query, dbobj, db);
+		ArrayList<Object> monthlyCoefficients = (ArrayList<Object>) dbobj.get("value");
+		if(monthlyCoefficients.size() != 12)
+		{
+			System.out.println("Something wrong with monthly coefficients"); // improve error handling
+			return;
+		}
+
+		
+        // Loop through years to disagg
+        TimeZone tz = TimeZone.getTimeZone("MST");
+        GregorianCalendar cal = new GregorianCalendar(tz);
+        Iterator<Object> itYr = YearstoDisagg.iterator();
+        Iterator<Object> itAnnualSource = AnnualSourceData.iterator();
+        
+        while(itYr.hasNext() && itAnnualSource.hasNext()) {
+        	int yr = Integer.parseInt(itYr.next().toString());
+        	Double annualSourceVal = Double.valueOf(itAnnualSource.next().toString());
+        	
+        	// get Monthly source data
+            query = "SELECT EXTRACT(MONTH FROM start_date_time) month, value FROM r_base"
+    				+ " WHERE site_datatype_id = " + CUL_SDI.getValue()
+    				+ " AND interval = 'month'"
+    				+ " AND EXTRACT(YEAR FROM start_date_time) = " + yr    				
+    				+ " AND loading_application_id != " + compEdit
+    				+ " AND loading_application_id != " + estimationApp
+            		+ " ORDER BY EXTRACT(MONTH FROM start_date_time) ASC";
+            this.doQuery(query, dbobj, db);
+        	
+            // Volume to distribute is the difference between the annual source point and sum of monthly source points
+            // Monthly volume (for months without source data) = Volume to distribute * monthly coefficient / sum of monthly coefficients w/o source data
+            ArrayList<Object> monthlySourceData = null;
+            ArrayList<Object> monthlySourceMonths = null;
+            Double monthlySourceSum = 0.0;
+            Double monthlyCoefficientSum = 0.0;
+            if(dbobj.get("value").toString().isBlank())
+            {
+            	monthlySourceData = null;
+            	monthlySourceMonths = null;
+            }else
+            {
+            	monthlySourceData = (ArrayList<Object>) dbobj.get("value");
+            	monthlySourceMonths = (ArrayList<Object>) dbobj.get("month");
+            }
+            
+            // First loop through the months to calculate sums
+            for(int m = 1; m <= 12; m++)
+            {
+            	if(monthlySourceMonths != null && monthlySourceMonths.contains(String.valueOf(m)))
+            	{
+            		int idx = monthlySourceMonths.indexOf(String.valueOf(m));
+            		monthlySourceSum += Double.valueOf(monthlySourceData.get(idx).toString());
+            	}else
+            	{
+            		monthlyCoefficientSum += Double.valueOf(monthlyCoefficients.get(m - 1).toString());
+            	}
+            }
+         // Loop through months again to set output
+            for(int m = 1; m <= 12; m++)
+            {
+            	if(monthlySourceMonths == null || !monthlySourceMonths.contains(String.valueOf(m)))
+            	{
+            		cal.set(yr, m - 1,1,0,0);
+            		double coeff = Double.valueOf(monthlyCoefficients.get(m - 1).toString());
+            		setOutput(MonthlyOutput,(annualSourceVal - monthlySourceSum) * coeff / monthlyCoefficientSum,cal.getTime());
+            	}
+            }
+                                    
+        }
+       
+
 //AW:AFTER_TIMESLICES_END
 	}
 
+	private String doQuery(String q, DataObject dbobj, DBAccess db)
+	{
+		String status = db.performQuery(q, dbobj);
+		if(status.startsWith("ERROR"))
+		{
+			System.out.println("Query didn't work"); // improve error handling
+		}
+		return status;
+		
+	}
 	/**
 	 * Required method returns a list of all input time series names.
 	 */
