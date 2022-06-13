@@ -108,7 +108,7 @@ public class SourceDistributionComputeAlg
     public String flags;
 
     String[] _propertyNames = { "ignore_partials", "estimation_process",
-            "validation_flag", "no_rounding", "coeff_year" };
+            "validation_flag", "rounding", "coeff_year" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
@@ -139,6 +139,7 @@ public class SourceDistributionComputeAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
+        // protects against SQL injection string shenanigans
         if ( !loadappPattern.matcher( estimation_process ).matches()) {
           warning("Loading application name not valid: "+estimation_process);
           return;
@@ -184,7 +185,6 @@ public class SourceDistributionComputeAlg
         // calculate number of days in the month in case the numbers are for month derivations
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
                 _aggregatePeriodBegin + " SDI: " + getSDI("input"));
-        do_setoutput = true;
 
         // get the input and output parameters and see if its model data
         ParmRef parmRef = getParmRef("input");
@@ -213,10 +213,6 @@ public class SourceDistributionComputeAlg
 
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
-        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-        sdf.setTimeZone(
-                TimeZone.getTimeZone(
-                        DecodesSettings.instance().aggregateTimeZone));
 
         String status;
         DataObject dbobj = new DataObject();
