@@ -284,6 +284,7 @@ public class DBAccess
 				}
 			} // end of else rowcount must be greater than one
 
+			do1.put("rowCount",rowCount);
 			return "SUCCESS:";
 		}
 		catch (SQLException e)
@@ -323,12 +324,9 @@ public class DBAccess
 	 * @version 1.0
 	 * @param query
 	 *            the Actual sql formatted query that is to be performed.
-	 * @param db_object
+	 * @param do1
 	 *            the object that will contain the info necessary to query the
 	 *            database
-	 * @param do_list
-	 *            The arraylist the query results rows/dataobject will be placed
-	 *            into. Date: 06-May-2004
 	 */
 	public ArrayList get_arraylist_query(String query, DataObject do1)
 	{
