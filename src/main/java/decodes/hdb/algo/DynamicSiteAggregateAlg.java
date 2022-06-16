@@ -200,20 +200,24 @@ public class DynamicSiteAggregateAlg
                 " id.table_selector = " + getTableSelector("input") + "' AND " +
                 " output.objecttype_id = obj.objecttype_id AND\n";
 
-        if (peer_site_method.equalsIgnoreCase("HUC"))
+        if (output_site_method.equalsIgnoreCase("HUC"))
         {
             query += " output.site_name = trig.hydrologic_unit AND \n" +
                      " obj.objecttype_tag = 'huc'\n";
         }
-        else if (peer_site_method.equalsIgnoreCase("Basin"))
+        else if (output_site_method.equalsIgnoreCase("Basin"))
         {
             query += " outputsd.site_id = trig.basin_id\n";
         }
-        else if (peer_site_method.equalsIgnoreCase("Parent"))
+        else if (output_site_method.equalsIgnoreCase("Parent"))
         {
             query += " outputsd.site_id = trig.parent_site_id\n";
         }
-
+        else
+        {
+            warning(comp.getName() + "-" + alg_ver + " Aborted: output_site_method property incorrect! " + output_site_method);
+            return;
+        }
         debug3("Before TimeSlice Query: " + query);
 
         status = db.performQuery(query,dbobj);
@@ -236,6 +240,7 @@ public class DynamicSiteAggregateAlg
         }
 
         // now build query for sums
+        boolean foundPeers = true;
         query = " WITH t AS\n" +
                 " (SELECT r.value FROM r_month r, hdb_site_datatype sourcesd, hdb_site_datatype destsd,\n" +
                 " hdb_site trig, hdb_site members\n" +
@@ -255,13 +260,18 @@ public class DynamicSiteAggregateAlg
         {
             query += " members.parent_id = trig.parent_id AND\n";
         }
+        else
+        {
+            foundPeers = false;
+        }
         query +=" members.site_id = destsd.site_id AND\n" +
                 " sourcesd.datatype_id = destsd.datatype_id AND\n" +
                 " trig.objecttype_id = members.objecttype_id AND\n" +
                 " r.site_datatype_id = destsd.site_datatype_id AND\n";
 
-        if (peer_site_method.equalsIgnoreCase("CompDepends"))
+        if ( !foundPeers && peer_site_method.equalsIgnoreCase("CompDepends"))
         {
+            foundPeers = true;
             query = " WITH t AS\n" + //overwrite query completely
                     " (SELECT r.value FROM r_month r, cp_comp_depends dep,\n" +
                     " cp_ts_id id\n" +
@@ -269,6 +279,12 @@ public class DynamicSiteAggregateAlg
                     " dep.computation_id = " + comp.getId() + " AND\n" +
                     " dep.ts_id = cp_ts_id.ts_id AND\n" +
                     " r.site_datatype_id = id.site_datatype_id AND\n";
+        }
+
+        if (!foundPeers)
+        {
+            warning(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + output_site_method);
+            return;
         }
 
         selectClause = " SELECT sum(VALUE) value FROM t";
@@ -310,16 +326,16 @@ public class DynamicSiteAggregateAlg
         debug3("TimeSlice Query: " + sliceQuery);
 
         status = db.performQuery(sliceQuery,dbobj);
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
+            warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted: see following error message");
             warning(status);
             outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, 0, TO_DELETE));
         }
         else
         {
             Double value_out = new Double(dbobj.get("value").toString());
-            debug1("Setting output for timeslice " + debugSdf.format(this._timeSliceBaseTime) + ": " + value_out);
+            debug3(comp.getName() + "-" + alg_ver + "Setting output for timeslice " + debugSdf.format(this._timeSliceBaseTime) + ": " + value_out);
             outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, value_out, TO_WRITE));
         }
 
@@ -342,6 +358,7 @@ public class DynamicSiteAggregateAlg
         // set the output if all is successful and set the flags appropriately
         if (do_setoutput) {
             try {
+                debug1(comp.getName() + "-" + alg_ver + "saving timeseries: " + outputSeries.getBriefDescription());
                 dao.saveTimeSeries(outputSeries);
             } catch (DbIoException | BadTimeSeriesException e) {
                 warning("Exception during saving output to database:" + e.toString());
