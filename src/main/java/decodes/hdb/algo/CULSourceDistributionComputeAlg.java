@@ -108,7 +108,7 @@ public class CULSourceDistributionComputeAlg
     public String flags;
 
     String[] _propertyNames = { "ignore_partials", "estimation_process",
-            "validation_flag", "no_rounding", "coeff_year" };
+            "validation_flag", "rounding", "coeff_year" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
@@ -139,10 +139,11 @@ public class CULSourceDistributionComputeAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
-      if ( !loadappPattern.matcher( estimation_process ).matches()) {
-          warning("Loading application name not valid: "+estimation_process);
-          return;
-      }
+        // protects against SQL injection string shenanigans, avoid Bobby problem?
+        if ( !loadappPattern.matcher( estimation_process ).matches()) {
+            warning("Loading application name not valid: "+estimation_process);
+            return;
+        }
 
         query = null;
         count = 0;
@@ -185,11 +186,11 @@ public class CULSourceDistributionComputeAlg
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
                 _aggregatePeriodBegin + " SDI: " + getSDI("input"));
         do_setoutput = true;
-//
+
         // get the input and output parameters and see if its model data
         ParmRef parmRef = getParmRef("input");
         if (parmRef == null) {
-            warning("Unknown aggregate control output variable 'INPUT'");
+            warning("Unknown variable 'INPUT'");
             return;
         }
 
@@ -203,31 +204,24 @@ public class CULSourceDistributionComputeAlg
 
         parmRef = getParmRef("output1");
         if (parmRef == null)
-            warning("Unknown aggregate control output variable 'OUTPUT'");
-//
+            warning("Unknown output variable 'OUTPUT'");
 
-        TimeZone tz = TimeZone.getTimeZone("MST");
+        TimeZone tz = TimeZone.getTimeZone("GMT");
         GregorianCalendar cal = new GregorianCalendar(tz);
-        //GregorianCalendar cal1 = new GregorianCalendar();
-        //cal1.setTime(_aggregatePeriodBegin);
-        //cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
+        GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
+        cal1.setTime(_aggregatePeriodBegin);
+        cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
-
-//
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
-        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-        sdf.setTimeZone(
-                TimeZone.getTimeZone(
-                        DecodesSettings.instance().aggregateTimeZone));
-//                        DbCompConfig.instance().getAggregateTimeZone()));
+
         String status;
         DataObject dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         DBAccess db = new DBAccess(conn);
         RBASEUtils rbu = new RBASEUtils(dbobj,conn);
-//
+
         String require_12_clause = "";
         if (ignore_partials)
         {
@@ -243,13 +237,13 @@ public class CULSourceDistributionComputeAlg
                 " (SELECT vals.VALUE, EXTRACT(MONTH FROM vals.start_date_time) mon, EXTRACT(YEAR FROM vals.start_date_time) yr" +
                 " FROM hdb_site_datatype sd, r_month vals, r_base base, hdb_loading_application app" +
                 " WHERE" +
-                " sd.site_datatype_id = "+getSDI("input")+" and" +
-                " sd.site_datatype_id = vals.site_datatype_id and" +
+                " sd.site_datatype_id = "+getSDI("input")+" AND" +
+                " sd.site_datatype_id = vals.site_datatype_id AND" +
                 " sd.site_datatype_id = base.site_datatype_id AND" +
                 " base.INTERVAL = 'month' AND base.start_date_time = vals.start_date_time AND" +
-                " base.loading_application_id = app.loading_application_id and" +
+                " base.loading_application_id = app.loading_application_id AND" +
                 " app.loading_application_name != '" + estimation_process + "' AND" +
-                " app.loading_application_name != 'compedit'" + // string from property, Bobby problem?"
+                " app.loading_application_name != 'compedit'" +
                 " )," +
                 " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr)" +
                 select_clause + // SELECT mon, avg(VALUE/tot) coef FROM t, yrs -- or rounding version
@@ -273,12 +267,11 @@ public class CULSourceDistributionComputeAlg
         ArrayList<Object> mons  = (ArrayList<Object>) dbobj.get("mon");
         ArrayList<Object> coeffs = (ArrayList<Object>) dbobj.get("coef");
 
-//
         //  delete any existing resultant value if not enough values returned
         if (mons.size() != 12)
         {
             debug3(comp.getAlgorithmName() + "-" + alg_ver + " Aborted: not enough month values " + _aggregatePeriodBegin + " SDI: " + getSDI("input"));
-            do_setoutput = false;
+            do_setoutput = false; // something went wrong, delete outputs
         }
 
 //              otherwise we have some records so continue...
@@ -314,8 +307,6 @@ public class CULSourceDistributionComputeAlg
                 deleteOutput(output,cal.getTime());
             }
         }
-
-
 
 //AW:AFTER_TIMESLICES_END
     }
