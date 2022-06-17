@@ -1,5 +1,6 @@
 package decodes.hdb.algo;
 
+import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
 import decodes.hdb.dbutils.RBASEUtils;
@@ -7,6 +8,7 @@ import decodes.tsdb.*;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
 import decodes.util.PropertySpec;
+import ilex.util.TextUtil;
 import ilex.var.NamedVariable;
 import ilex.var.TimedVariable;
 import opendcs.dai.TimeSeriesDAI;
@@ -87,7 +89,7 @@ import static decodes.tsdb.VarFlags.TO_WRITE;
 
  */
 //AW:JAVADOC_END
-public class DynamicSiteAggregateAlg
+public class DynamicSpatialAggregateAlg
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
@@ -100,8 +102,6 @@ public class DynamicSiteAggregateAlg
     String alg_ver = "1.0";
     String query;
     String selectClause;
-    int count = 0;
-    boolean do_setoutput = true;
     Connection conn = null;
     DBAccess db = null;
     DataObject dbobj = null;
@@ -174,9 +174,7 @@ public class DynamicSiteAggregateAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
-        count = 0;
-        do_setoutput = true;
-        flags = "";
+
 
         DataObject dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
@@ -328,7 +326,8 @@ public class DynamicSiteAggregateAlg
         status = db.performQuery(sliceQuery,dbobj);
         if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
         {
-            warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted: see following error message");
+            warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted at: " + debugSdf.format(this._timeSliceBaseTime) +
+                    " See following error message:");
             warning(status);
             outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, 0, TO_DELETE));
         }
@@ -336,7 +335,18 @@ public class DynamicSiteAggregateAlg
         {
             Double value_out = new Double(dbobj.get("value").toString());
             debug3(comp.getName() + "-" + alg_ver + "Setting output for timeslice " + debugSdf.format(this._timeSliceBaseTime) + ": " + value_out);
-            outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, value_out, TO_WRITE));
+
+            TimedVariable v = new TimedVariable(_timeSliceBaseTime, value_out, TO_WRITE);
+            if (flags.length() > 0)
+                v.setFlags(v.getFlags() | HdbFlags.hdbDerivation2flag(flags));
+            if (validation_flag.length() > 0)
+                v.setFlags(v.getFlags() | HdbFlags.hdbValidation2flag(validation_flag.charAt(1)));
+            if (tsdb.isHdb() && TextUtil.str2boolean(comp.getProperty("OverwriteFlag")))
+            {
+                //waiting on release of overwrite flag upstream
+                //v.setFlags(v.getFlags() | HdbFlags.HDBF_OVERWRITE_FLAG);
+            }
+            outputSeries.addSample(v);
         }
 
         // Enter code to be executed at each time-slice.
@@ -355,14 +365,12 @@ public class DynamicSiteAggregateAlg
         // For Aggregating algorithms, this is done after each aggregate
         // period.
 
-        // set the output if all is successful and set the flags appropriately
-        if (do_setoutput) {
-            try {
-                debug1(comp.getName() + "-" + alg_ver + "saving timeseries: " + outputSeries.getBriefDescription());
-                dao.saveTimeSeries(outputSeries);
-            } catch (DbIoException | BadTimeSeriesException e) {
-                warning("Exception during saving output to database:" + e.toString());
-            }
+        // set the outputs. If some timesteps failed, they will be marked for delete and be deleted here.
+        try {
+            debug1(comp.getName() + "-" + alg_ver + "saving timeseries: " + outputSeries.getBriefDescription());
+            dao.saveTimeSeries(outputSeries);
+        } catch (DbIoException | BadTimeSeriesException e) {
+            warning("Exception during saving output to database:" + e.toString());
         }
 //AW:AFTER_TIMESLICES_END
     }
