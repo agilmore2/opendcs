@@ -166,10 +166,6 @@ public class CULPowerTemporalDisagg
         status = this.doQuery(query, dbobj, db);
         int estimationApp = Integer.valueOf((String) dbobj.get("loading_application_id"));
         
-        // Get SDI of monthly coefficients
-        // This might need to be expanded for future sectors where coefficients might be stored in a site_coeff table instead of computed
-        
-        
         // Get years to disagg (years with an annual source data point)
         // May need to get more thorough for this in other sectors
         query = "SELECT EXTRACT(YEAR FROM start_date_time) year, value FROM r_base"
@@ -223,7 +219,7 @@ public class CULPowerTemporalDisagg
             ArrayList<Object> monthlySourceMonths = null;
             Double monthlySourceSum = 0.0;
             Double monthlyCoefficientSum = 0.0;
-            if(dbobj.get("value").toString().isBlank())
+            if(dbobj.get("value").toString().isEmpty())
             {
             	monthlySourceData = null;
             	monthlySourceMonths = null;
