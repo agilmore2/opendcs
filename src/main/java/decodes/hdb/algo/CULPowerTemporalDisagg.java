@@ -223,7 +223,7 @@ public class CULPowerTemporalDisagg
             ArrayList<Object> monthlySourceMonths = null;
             Double monthlySourceSum = 0.0;
             Double monthlyCoefficientSum = 0.0;
-            if(dbobj.get("value").toString().isBlank())
+            if(dbobj.get("value").toString().isEmpty())
             {
             	monthlySourceData = null;
             	monthlySourceMonths = null;

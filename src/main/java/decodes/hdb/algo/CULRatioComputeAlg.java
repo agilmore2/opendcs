@@ -2,7 +2,7 @@ package decodes.hdb.algo;
 
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
-import decodes.hdb.dbutils.RBASEUtils;
+import decodes.sql.DbKey;
 import decodes.tsdb.DbCompException;
 import decodes.tsdb.ParmRef;
 import decodes.tsdb.algo.AWAlgoType;
@@ -69,9 +69,9 @@ public class CULRatioComputeAlg
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double input1;	//AW:TYPECODE=i
-    public double input2;	//AW:TYPECODE=i
-    String[] _inputNames = { "input1", "input2" };
+    public double livestock;	//AW:TYPECODE=i
+    public double stockpond;	//AW:TYPECODE=i
+    String[] _inputNames = { "livestock", "stockpond" };
 //AW:INPUTS_END
 
     //AW:LOCALVARS
@@ -102,8 +102,8 @@ public class CULRatioComputeAlg
 //AW:LOCALVARS_END
 
     //AW:OUTPUTS
-    public NamedVariable output = new NamedVariable("output", 0);
-    String[] _outputNames = { "output"};
+    public NamedVariable ratio = new NamedVariable("ratio", 0);
+    String[] _outputNames = { "ratio"};
 //AW:OUTPUTS_END
 
     //AW:PROPERTIES
@@ -189,36 +189,35 @@ public class CULRatioComputeAlg
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
                 _aggregatePeriodBegin + " SDI: " + getSDI("input"));
         do_setoutput = true;
+        ParmRef liveRef = getParmRef("livestock");
+        ParmRef stockRef = getParmRef("stockpond");
 
         // get the input and output parameters and see if its model data
-        ParmRef inRef1 = getParmRef("input1");
-        if (inRef1 == null) {
+        if (liveRef == null) {
             warning("Unknown variable 'INPUT1'");
             return;
         }
-        ParmRef inRef2 = getParmRef("input2");
-        if (inRef2 == null) {
+        if (stockRef == null) {
             warning("Unknown variable 'INPUT2'");
             return;
         }
 
-        String input_interval1 = inRef1.compParm.getInterval();
+        String input_interval1 = liveRef.compParm.getInterval();
         if (input_interval1 == null || !input_interval1.equals("year"))
             warning("Wrong input1 interval for " + comp.getAlgorithmName());
-        String table_selector1 = inRef1.compParm.getTableSelector();
+        String table_selector1 = liveRef.compParm.getTableSelector();
         if (table_selector1 == null || !table_selector1.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-        String input_interval2 = inRef2.compParm.getInterval();
+        String input_interval2 = stockRef.compParm.getInterval();
         if (input_interval2 == null || !input_interval2.equals("year"))
             warning("Wrong input2 interval for " + comp.getAlgorithmName());
-        String table_selector2 = inRef2.compParm.getTableSelector();
+        String table_selector2 = stockRef.compParm.getTableSelector();
         if (table_selector2 == null || !table_selector2.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-
-        ParmRef outRef = getParmRef("output1");
-        if (outRef == null)
+        ParmRef ratioRef = getParmRef("output1");
+        if (ratioRef == null)
             warning("Unknown output variable 'OUTPUT'");
 
         TimeZone tz = TimeZone.getTimeZone("GMT");
@@ -236,6 +235,9 @@ public class CULRatioComputeAlg
         conn = tsdb.getConnection();
         DBAccess db = new DBAccess(conn);
 
+        DbKey liveSDI = liveRef.timeSeries.getSDI();
+        DbKey stockSDI = stockRef.timeSeries.getSDI();
+
         String select_clause = " SELECT avg(ratio) ratio FROM t";
         if (rounding)
         {
@@ -246,8 +248,8 @@ public class CULRatioComputeAlg
                 " (SELECT extract(year from a.start_date_time) yr, A.VALUE/(A.VALUE+b.VALUE) ratio\n" +
                 " FROM\n" +
                 " r_year A, r_year b, r_base ab, r_base bb WHERE\n" +
-                " A.site_datatype_id = 25059 AND -- pull from input1\n" +
-                " b.site_datatype_id = 25058 AND -- pull from input2\n" +
+                " A.site_datatype_id = " + liveSDI + " AND -- pull from input1\n" +
+                " b.site_datatype_id = " + stockSDI + " AND -- pull from input2\n" +
                 " A.start_date_time = b.start_date_time AND\n" +
                 " -- join with r_base for input1 to check loading app\n" +
                 " A.site_datatype_id = ab.site_datatype_id AND\n" +
@@ -255,7 +257,7 @@ public class CULRatioComputeAlg
                 " ab.start_date_time = A.start_date_time AND\n" +
                 " ab.loading_application_id NOT IN\n" +
                 "  (SELECT loading_application_id FROM\n" +
-                "  hdb_loading_application WHERE loading_application_name IN ('CU_estimation_process')\n" +
+                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "')\n" +
                 "  ) AND\n" +
                 " -- same for input2\n" +
                 " b.site_datatype_id = bb.site_datatype_id AND\n" +
@@ -263,7 +265,7 @@ public class CULRatioComputeAlg
                 " bb.start_date_time = b.start_date_time AND\n" +
                 " bb.loading_application_id NOT IN\n" +
                 "  (SELECT loading_application_id FROM\n" +
-                "  hdb_loading_application WHERE loading_application_name IN ('CU_estimation_process')\n" +
+                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "')\n" +
                 "  )\n" +
                 " )\n" +
                 select_clause; // SELECT avg(ratio) ratio FROM t -- or rounding version
@@ -282,29 +284,28 @@ public class CULRatioComputeAlg
             return;
         }
         // now retrieve ratio
-        double ratio = Double.parseDouble((String) dbobj.get("ratio"));
+        double rat = Double.parseDouble((String) dbobj.get("ratio"));
 
         // set the output if all is successful and set the flags appropriately
         cal.set(coeff_year, 0, 1, 0, 0); // Months are 0 indexed in Java dates
         if (do_setoutput) {
-
             debug3("FLAGS: " + flags);
             if (flags != null)
-                setHdbDerivationFlag(output, flags);
+                setHdbDerivationFlag(ratio, flags);
             //
             /* added to allow users to automatically set the Validation column */
             if (validation_flag.length() > 0)
-                setHdbValidationFlag(output, validation_flag.charAt(1));
+                setHdbValidationFlag(ratio, validation_flag.charAt(1));
 
-            info("Setting output for " + debugSdf.format(cal.getTime()));
-            setOutput(output, ratio, cal.getTime());
+            debug3("Setting output for " + debugSdf.format(cal.getTime()));
+            setOutput(ratio, rat, cal.getTime());
         }
         // delete any existing value if this calculation failed
         else
         {
             info("Deleting output for " + debugSdf.format(cal.getTime()));
             cal.set(coeff_year,0,1,0,0);
-            deleteOutput(output,cal.getTime());
+            deleteOutput(ratio,cal.getTime());
         }
 
 //AW:AFTER_TIMESLICES_END
