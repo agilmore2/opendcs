@@ -37,9 +37,10 @@ import java.util.regex.Pattern;
  (SELECT extract(year from a.start_date_time) yr, A.VALUE/(A.VALUE+b.VALUE) ratio
  FROM
  r_year A, r_year b, r_base ab, r_base bb WHERE
- A.site_datatype_id = 25059 AND -- pull from input1
- b.site_datatype_id = 25058 AND -- pull from input2
+ A.site_datatype_id = 25058 AND -- pull from input1 (livestock)
+ b.site_datatype_id = 25059 AND -- pull from input2 (stockpond)
  A.start_date_time = b.start_date_time AND
+ A.start_date_time BETWEEN TO_DATE('1976-01-01','yyyy-mm-dd') AND TO_DATE('1980-01-01','yyyy-mm-dd') AND -- select the range of source data used to disagg
  -- join with r_base for input1 to check loading app
  A.site_datatype_id = ab.site_datatype_id AND
  ab.INTERVAL = 'year' AND
@@ -93,6 +94,10 @@ public class CULRatioComputeAlg
                             "(empty) Always set these dataflags in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
                             "(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+                    new PropertySpec("src_startyr", PropertySpec.INT,
+                    		"(1976) Start year of source data used to calculate disagg coefficients"),
+                    new PropertySpec("src_endyr", PropertySpec.INT,
+                    		"(1985) End year of source data used to calculate disagg coefficients"),                    
                     new PropertySpec("coeff_year", PropertySpec.INT,
                             "(1985) What year to write coefficients into"),
             };
@@ -111,6 +116,8 @@ public class CULRatioComputeAlg
     public String estimation_process = "CU_estimation_process";
     public String validation_flag = "";
     public Integer coeff_year = 1985;
+    public Integer src_startyr = 1976;
+    public Integer src_endyr = 1985;
     public String flags;
 
     String[] _propertyNames = { "estimation_process", "validation_flag", "rounding", "coeff_year", "flags" };
@@ -220,10 +227,10 @@ public class CULRatioComputeAlg
         if (ratioRef == null)
             warning("Unknown output variable 'OUTPUT'");
 
-        TimeZone tz = TimeZone.getTimeZone("GMT");
+        TimeZone tz = TimeZone.getTimeZone("MST");
         GregorianCalendar cal = new GregorianCalendar(tz);
         GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
-        cal1.setTime(_aggregatePeriodBegin);
+        cal1.setTime(_timeSliceBaseTime);
         cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
         // get the connection  and a few other classes so we can do some sql
@@ -251,6 +258,7 @@ public class CULRatioComputeAlg
                 " A.site_datatype_id = " + liveSDI + " AND -- pull from input1\n" +
                 " b.site_datatype_id = " + stockSDI + " AND -- pull from input2\n" +
                 " A.start_date_time = b.start_date_time AND\n" +
+                " A.start_date_time BETWEEN TO_DATE('" + src_startyr + "-01-01','yyyy-mm-dd') AND TO_DATE('" + src_endyr + "-01-01','yyyy-mm-dd') AND\n" +
                 " -- join with r_base for input1 to check loading app\n" +
                 " A.site_datatype_id = ab.site_datatype_id AND\n" +
                 " ab.INTERVAL = 'year' AND\n" +
@@ -276,8 +284,7 @@ public class CULRatioComputeAlg
         debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
-        if (status.startsWith("ERROR") || (Integer.parseInt((String) dbobj.get("rowCount")) != 1)
-)
+        if (status.startsWith("ERROR") || ((Integer) dbobj.get("rowCount")) != 1)
         {
             warning(comp.getName()+"-"+alg_ver+" Aborted: see following error message");
             warning(status);
