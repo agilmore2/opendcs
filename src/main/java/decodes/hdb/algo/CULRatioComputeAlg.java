@@ -120,7 +120,7 @@ public class CULRatioComputeAlg
     public Integer src_endyr = 1985;
     public String flags;
 
-    String[] _propertyNames = { "estimation_process", "validation_flag", "rounding", "coeff_year", "flags" };
+    String[] _propertyNames = { "estimation_process", "validation_flag", "rounding", "coeff_year", "flags","src_startyr","src_endyr" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
