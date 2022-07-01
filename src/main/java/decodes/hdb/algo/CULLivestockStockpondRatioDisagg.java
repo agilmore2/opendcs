@@ -142,7 +142,7 @@ public class CULLivestockStockpondRatioDisagg
 				+ " AND extract(year from start_date_time) = " + coeff_year;
 
 		status = this.doQuery(query, dbobj, db);
-		if (status.startsWith("ERROR") || Integer.parseInt((String) dbobj.get("rowCount")) != 1)
+		if (status.startsWith("ERROR") || (Integer) dbobj.get("rowCount") != 1)
 		{
 			warning (comp.getName() + "Something wrong with coefficient query");
 			warning(status);
@@ -164,7 +164,7 @@ public class CULLivestockStockpondRatioDisagg
         		+ " ORDER BY year ASC";
         
         status = this.doQuery(query, dbobj, db);
-		if (status.startsWith("ERROR") || Integer.parseInt((String) dbobj.get("rowCount")) < 2)
+		if (status.startsWith("ERROR") || (Integer) dbobj.get("rowCount") < 2)
 		{
 			warning(comp.getName() + ": Value query failed or returned only one row."); // improve error handling
 			warning(status);
