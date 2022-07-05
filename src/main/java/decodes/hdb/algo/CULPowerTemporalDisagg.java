@@ -76,7 +76,7 @@ public class CULPowerTemporalDisagg
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
-    public Integer coeff_year = 1985;
+    public long coeff_year = 1985;
 	String _propertyNames[] = { "coeff_year" };
 //AW:PROPERTIES_END
 

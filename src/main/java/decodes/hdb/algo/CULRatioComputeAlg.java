@@ -115,9 +115,9 @@ public class CULRatioComputeAlg
     public boolean rounding = false;
     public String estimation_process = "CU_estimation_process";
     public String validation_flag = "";
-    public Integer coeff_year = 1985;
-    public Integer src_startyr = 1976;
-    public Integer src_endyr = 1985;
+    public long coeff_year = 1985;
+    public long src_startyr = 1976;
+    public long src_endyr = 1985;
     public String flags;
 
     String[] _propertyNames = { "estimation_process", "validation_flag", "rounding", "coeff_year", "flags","src_startyr","src_endyr" };
@@ -294,7 +294,7 @@ public class CULRatioComputeAlg
         double rat = Double.parseDouble((String) dbobj.get("ratio"));
 
         // set the output if all is successful and set the flags appropriately
-        cal.set(coeff_year, 0, 1, 0, 0); // Months are 0 indexed in Java dates
+        cal.set((int)coeff_year, 0, 1, 0, 0); // Months are 0 indexed in Java dates
         if (do_setoutput) {
             debug3("FLAGS: " + flags);
             if (flags != null)
@@ -311,7 +311,7 @@ public class CULRatioComputeAlg
         else
         {
             info("Deleting output for " + debugSdf.format(cal.getTime()));
-            cal.set(coeff_year,0,1,0,0);
+            cal.set((int)coeff_year,0,1,0,0);
             deleteOutput(ratio,cal.getTime());
         }
 

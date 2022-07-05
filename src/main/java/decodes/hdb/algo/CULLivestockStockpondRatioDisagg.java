@@ -62,7 +62,7 @@ public class CULLivestockStockpondRatioDisagg
 	public String estimation_process = "CU_estimation_process";
 	public String validation_flag = "";
 	public String flags;
-	public Integer coeff_year = 1985;
+	public long coeff_year = 1985;
     String[] _propertyNames = { "estimation_process", "validation_flag", "coeff_year", "flags" };
 //AW:PROPERTIES_END
 

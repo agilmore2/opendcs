@@ -104,7 +104,7 @@ public class CULSourceDistributionComputeAlg
     public boolean rounding = false;
     public String estimation_process = "CU_estimation_process";
     public String validation_flag = "";
-    public Integer coeff_year = 1985;
+    public long coeff_year = 1985;
     public String flags;
 
     String[] _propertyNames = { "ignore_partials", "estimation_process",
@@ -283,7 +283,7 @@ public class CULSourceDistributionComputeAlg
             while (it1.hasNext() && it2.hasNext()) {
                 int mon = Integer.parseInt(it1.next().toString());
                 double coeff = Double.parseDouble(it2.next().toString());
-                cal.set(coeff_year, mon - 1, 1, 0, 0); // Months are 0 indexed in Java dates
+                cal.set((int)coeff_year, mon - 1, 1, 0, 0); // Months are 0 indexed in Java dates
 
                 debug3("FLAGS: " + flags);
                 if (flags != null)
@@ -303,7 +303,7 @@ public class CULSourceDistributionComputeAlg
             info("Deleting output for " + debugSdf.format(cal.getTime()));
             for (Object mon: mons)
             {
-                cal.set(coeff_year,Integer.parseInt(mon.toString()) - 1,1,0,0);
+                cal.set((int)coeff_year,Integer.parseInt(mon.toString()) - 1,1,0,0);
                 deleteOutput(output,cal.getTime());
             }
         }
