@@ -246,7 +246,7 @@ public class CULFillMissingClimateData
         ArrayList<Object> monthsToFill = (ArrayList<Object>) dbobj.get("dt");
         
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S",Locale.ENGLISH);
-        formatter.setTimeZone(TimeZone.getTimeZone("MST"));
+        formatter.setTimeZone(tz);
         for(Iterator iter = monthsToFill.iterator(); iter.hasNext();)
         {
         	try {
