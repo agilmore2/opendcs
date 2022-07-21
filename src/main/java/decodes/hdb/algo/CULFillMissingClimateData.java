@@ -224,7 +224,7 @@ public class CULFillMissingClimateData
         		+ "(\n"
         		+ "SELECT start_date_time FROM r_base\n"
         		+ "WHERE interval = 'month'\n"
-        		+ "AND site_datatype_id = 29571 -- betatakin avg temp\n"
+        		+ "AND site_datatype_id = " + sdi + "\n"
         		+ "AND loading_application_id NOT IN\n"
         		+ "	(\n"
         		+ "	SELECT loading_application_id FROM hdb_loading_application WHERE\n"
