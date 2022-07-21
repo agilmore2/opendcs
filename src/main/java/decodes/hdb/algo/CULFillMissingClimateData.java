@@ -236,15 +236,23 @@ public class CULFillMissingClimateData
         status = db.performQuery(query,dbobj);
         debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
         
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || ((Integer) dbobj.get("rowCount")) == 0)
         {
             warning(comp.getName()+" Aborted: see following error message");
             warning(status);
             return;
         }
         
-        ArrayList<Object> monthsToFill = (ArrayList<Object>) dbobj.get("dt");
-        
+        // Occasionally a site will have exactly one month to fill, which can't be directly cast to arrayList. Handle separately
+        ArrayList<Object> monthsToFill;
+        if (((Integer) dbobj.get("rowCount")) == 1)
+        {
+        	monthsToFill = new ArrayList<Object>(1);
+        	monthsToFill.add(dbobj.get("dt"));
+        }else
+        {
+        	monthsToFill = (ArrayList<Object>) dbobj.get("dt");
+        }
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.S",Locale.ENGLISH);
         formatter.setTimeZone(tz);
         for(Iterator iter = monthsToFill.iterator(); iter.hasNext();)
