@@ -206,10 +206,11 @@ public class CULSourceDistributionComputeAlg
         if (parmRef == null)
             warning("Unknown output variable 'OUTPUT'");
 
-        TimeZone tz = TimeZone.getTimeZone("GMT");
+		// TODO: is this section necessary?
+        TimeZone tz = TimeZone.getTimeZone("MST");
         GregorianCalendar cal = new GregorianCalendar(tz);
         GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
-        cal1.setTime(_aggregatePeriodBegin);
+        cal1.setTime(_timeSliceBaseTime);
         cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
         // get the connection  and a few other classes so we can do some sql

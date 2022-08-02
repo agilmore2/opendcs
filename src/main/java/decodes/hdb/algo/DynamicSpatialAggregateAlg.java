@@ -187,7 +187,7 @@ public class DynamicSpatialAggregateAlg
         query = " SELECT\n" +
                 " id.ts_id ts\n" +
                 " FROM hdb_site_datatype sourcesd, hdb_site_datatype outputsd,\n" +
-                " hdb_site trig, hdb_site output, cp_ts_id id, hdb_objectype obj\n" +
+                " hdb_site trig, hdb_site output, cp_ts_id id, hdb_objecttype obj\n" +
                 " WHERE\n" +
                 " sourcesd.site_datatype_id = " + getSDI("input") + " AND\n" +
                 " sourcesd.site_id = trig.site_id AND\n" +
@@ -195,7 +195,7 @@ public class DynamicSpatialAggregateAlg
                 " outputsd.datatype_id = sourcesd.datatype_id AND\n" + // want this limited to only output same datatype?
                 " id.site_datatype_id = outputsd.site_datatype_id AND\n" +
                 " id.interval = '" + getInterval("input") + "' AND " +
-                " id.table_selector = " + getTableSelector("input") + "' AND " +
+                " id.table_selector = '" + getTableSelector("input") + "' AND " +
                 " output.objecttype_id = obj.objecttype_id AND\n";
 
         if (output_site_method.equalsIgnoreCase("HUC"))
