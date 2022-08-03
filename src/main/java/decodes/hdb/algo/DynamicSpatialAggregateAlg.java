@@ -4,6 +4,7 @@ import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
 import decodes.hdb.dbutils.RBASEUtils;
+import decodes.sql.DbKey;
 import decodes.tsdb.*;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
@@ -104,7 +105,7 @@ public class DynamicSpatialAggregateAlg
     String selectClause;
     Connection conn = null;
     DBAccess db = null;
-    DataObject dbobj = null;
+    DataObject dbobj = new DataObject();
     TimeSeriesDAI dao = null;
     CTimeSeries outputSeries = null;
 
@@ -176,10 +177,10 @@ public class DynamicSpatialAggregateAlg
 
 
 
-        DataObject dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         db = new DBAccess(conn);
+        
         dao = tsdb.makeTimeSeriesDAO();
         String status;
 
@@ -226,7 +227,7 @@ public class DynamicSpatialAggregateAlg
             return;
         }
 
-        String ts = dbobj.get("ts").toString();
+        DbKey ts = DbKey.createDbKey(Long.parseLong(dbobj.get("ts").toString()));
         debug3("Output Timeseries ID: " + ts);
         TimeSeriesIdentifier tsid;
         try {
@@ -240,7 +241,7 @@ public class DynamicSpatialAggregateAlg
         // now build query for sums
         boolean foundPeers = true;
         query = " WITH t AS\n" +
-                " (SELECT r.value FROM r_month r, hdb_site_datatype sourcesd, hdb_site_datatype destsd,\n" +
+                " (SELECT r.value FROM r_" + getInterval("input") + " r, hdb_site_datatype sourcesd, hdb_site_datatype destsd,\n" +
                 " hdb_site trig, hdb_site members\n" +
                 " WHERE\n" +
                 " sourcesd.site_datatype_id = " + getSDI("input")+ " AND\n" +
@@ -256,7 +257,7 @@ public class DynamicSpatialAggregateAlg
         }
         else if (peer_site_method.equalsIgnoreCase("Parent"))
         {
-            query += " members.parent_id = trig.parent_id AND\n";
+            query += " members.parent_site_id = trig.parent_site_id AND\n";
         }
         else
         {
@@ -271,7 +272,7 @@ public class DynamicSpatialAggregateAlg
         {
             foundPeers = true;
             query = " WITH t AS\n" + //overwrite query completely
-                    " (SELECT r.value FROM r_month r, cp_comp_depends dep,\n" +
+                    " (SELECT r.value FROM r_" + getInterval("input") + " r, cp_comp_depends dep,\n" +
                     " cp_ts_id id\n" +
                     " WHERE\n" +
                     " dep.computation_id = " + comp.getId() + " AND\n" +
@@ -368,6 +369,7 @@ public class DynamicSpatialAggregateAlg
         // set the outputs. If some timesteps failed, they will be marked for delete and be deleted here.
         try {
             debug1(comp.getName() + "-" + alg_ver + "saving timeseries: " + outputSeries.getBriefDescription());
+    		outputSeries.setComputationId(comp.getId());
             dao.saveTimeSeries(outputSeries);
         } catch (DbIoException | BadTimeSeriesException e) {
             warning("Exception during saving output to database:" + e.toString());
