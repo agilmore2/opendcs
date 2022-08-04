@@ -3,6 +3,7 @@ package decodes.hdb.algo;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
+import decodes.sql.DbKey;
 import decodes.tsdb.*;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
@@ -41,37 +42,37 @@ import static decodes.tsdb.VarFlags.TO_WRITE;
 
  working SQL queries to compute data:
 
- WITH t AS
- (SELECT r.value value, sr_as.value weight, sr_as.attr_id, sr_as.b_site_id output_site
- FROM r_month r, ref_spatial_relation sr_trig,
- ref_spatial_relation sr_as,
- hdb_site_datatype trig, hdb_site_datatype members
- WHERE
- trig.site_datatype_id = 7616 AND
- sr_trig.a_site_id = trig.site_id AND
- sr_trig.attr_id = 339 AND
- sr_as.attr_id = sr_trig.attr_id AND
- sr_as.b_site_id = sr_trig.b_site_id AND
- members.site_id = sr_as.a_site_id AND
- members.datatype_id = trig.datatype_id AND
- r.site_datatype_id = members.site_datatype_id AND
- r.start_date_time = '01-JAN-1990')
- SELECT output_site,sum(t.VALUE*decode(a.attr_value_type,'number',t.weight,1.0)) value, sum(t.weight) total-- use weight if attr type is number, otherwise 1.0
- FROM t, hdb_attr a
- where a.attr_id = t.attr_id
- group by output_site;
+  WITH t AS    
+  (SELECT r.value value, sr_as.value weight, sr_as.attr_id, sr_as.b_site_id output_site  
+  FROM r_year r, ref_spatial_relation sr_trig,  ref_spatial_relation sr_as,  hdb_site_datatype trig, hdb_site_datatype members  
+  WHERE  trig.site_datatype_id = 31213 AND  -- Moffact county population
+  sr_trig.a_site_id = trig.site_id AND  
+  sr_trig.attr_id = 452 AND -- % site A population located in site b
+  sr_as.attr_id = sr_trig.attr_id AND  
+  sr_as.b_site_id = sr_trig.b_site_id AND  
+  members.site_id = sr_as.a_site_id AND  
+  members.datatype_id = trig.datatype_id AND  
+  r.site_datatype_id = members.site_datatype_id AND  
+  r.start_date_time = to_date('01-01-1986 00:00','dd-MM-yyyy HH24:MI'))  
+ SELECT output_site,  sum(t.VALUE*decode(a.attr_value_type,'number', t.weight,1.0)) value,  sum(t.weight) total
+ FROM t, hdb_attr a  where a.attr_id = t.attr_id  group by output_site
 
  To find output sdis:
 
  SELECT
- outputsdis.site_datatype_id
- FROM hdb_site_datatype sourcesd, ref_spatial_relation sr, hdb_site_datatype outputsdis
+ id.ts_id ts, outputsdis.site_id
+ FROM hdb_site_datatype sourcesd, ref_spatial_relation sr,
+ hdb_site_datatype outputsdis, cp_ts_id id 
  WHERE
- sourcesd.site_datatype_id = 7630 AND
- sr.attr_id = 339 AND
+sourcesd.site_datatype_id = 31213 AND -- -- CO/GREEN RIVER TRIB Population
+sr.attr_id = 
+(SELECT attr_id FROM hdb_attr WHERE attr_name = 'percent site_a population located within site_b') AND
  sr.a_site_id = sourcesd.site_id AND
  outputsdis.site_id = sr.b_site_id AND
- outputsdis.datatype_id = sourcesd.datatype_id
+outputsdis.datatype_id = sourcesd.datatype_id AND
+ id.site_datatype_id = outputsdis.site_datatype_id AND
+ id.interval = 'year' AND
+ id.table_selector = 'R_'
  ;
 
  */
@@ -91,9 +92,9 @@ public class DynamicSpatialRelationAlg
     String selectClause;
     Connection conn = null;
     DBAccess db = null;
-    DataObject dbobj = null;
+    DataObject dbobj = new DataObject();
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = null;
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<String,CTimeSeries>();
 
     PropertySpec[] specs =
             {
@@ -104,7 +105,7 @@ public class DynamicSpatialRelationAlg
                     new PropertySpec("flags", PropertySpec.STRING,
                             "(empty) Always set these dataflags in the output"),
                     new PropertySpec("attribute", PropertySpec.STRING,
-                            "(empty) Which attribute should be aggregated"),
+                            "(empty) Which attribute should be used for aggregation"),
             };
 
 
@@ -120,8 +121,7 @@ public class DynamicSpatialRelationAlg
     public boolean rounding = false;
     public String validation_flag = "";
     public String flags = "";
-    public Integer attribute = null;
-    public String peer_site_method = "HUC";
+    public String attribute = null;
 
     String[] _propertyNames = { "rounding", "validation_flag", "flags", "attribute"};
 
@@ -169,13 +169,14 @@ public class DynamicSpatialRelationAlg
                 " hdb_site_datatype outputsdis, cp_ts_id id " +
                 " WHERE " +
                 " sourcesd.site_datatype_id = " + getSDI("input") + " AND " +
-                " sr.attr_id = " + attribute + " AND " +
+                " sr.attr_id = " + 
+                " (SELECT attr_id FROM hdb_attr WHERE attr_name = '" + attribute + "') AND" +
                 " sr.a_site_id = sourcesd.site_id AND " +
                 " outputsdis.site_id = sr.b_site_id AND " +
                 " outputsdis.datatype_id = sourcesd.datatype_id AND " +
                 " id.site_datatype_id = outputsdis.site_datatype_id AND " +
                 " id.interval = '" + getInterval("input") + "' AND " +
-                " id.table_selector = " + getTableSelector("input");
+                " id.table_selector = '" + getTableSelector("input") + "'";
 
         debug3("Before TimeSlice Query: " + query);
 
@@ -188,7 +189,6 @@ public class DynamicSpatialRelationAlg
         }
         // Need to handle multiple TS_IDs!
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        Object t = dbobj.get("ts");
         ArrayList<Object> tsids;
 
         if (count == 0)
@@ -200,20 +200,20 @@ public class DynamicSpatialRelationAlg
         else if (count == 1)
         {
             tsids = new ArrayList<Object>();
-            tsids.add(t);
+            tsids.add(dbobj.get("ts"));
         }
         else
         {
-            tsids = (ArrayList<Object>)t;
+            tsids = (ArrayList<Object>) dbobj.get("ts");
         }
 
         Iterator<Object> itId = tsids.iterator();
         try {
             while(itId.hasNext()) {
-                String id = itId.next().toString();
+                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
                 debug3("Output Timeseries ID: " + id);
                 TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.put(id,dao.makeTimeSeries(tsid));
+                outputSeries.put(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
             }
         } catch (Exception e) {
             warning(e.toString());
@@ -223,13 +223,14 @@ public class DynamicSpatialRelationAlg
         // now build query for sums
         query = "  WITH t AS " +
                 " (SELECT r.value value, sr_as.value weight, sr_as.attr_id, sr_as.b_site_id output_site " +
-                " FROM r_month r, ref_spatial_relation sr_trig, " +
+                " FROM r_" + getInterval("input") + " r, ref_spatial_relation sr_trig, " +
                 " ref_spatial_relation sr_as, " +
                 " hdb_site_datatype trig, hdb_site_datatype members " +
                 " WHERE " +
                 " trig.site_datatype_id = " + getSDI("input") + " AND " +
                 " sr_trig.a_site_id = trig.site_id AND " +
-                " sr_trig.attr_id = " + attribute + " AND " +
+                " sr_trig.attr_id = " + 
+                " (SELECT attr_id FROM hdb_attr WHERE attr_name = '" + attribute + "') AND " +
                 " sr_as.attr_id = sr_trig.attr_id AND " +
                 " sr_as.b_site_id = sr_trig.b_site_id AND " +
                 " members.site_id = sr_as.a_site_id AND " +
@@ -244,7 +245,7 @@ public class DynamicSpatialRelationAlg
         {
             selectClause += " sum(t.VALUE*decode(a.attr_value_type,'number', t.weight,1.0)) value, ";
         }
-        selectClause += " sum(t.weight) total-- use weight if attr type is number, otherwise 1.0 " +
+        selectClause += " sum(t.weight) weight " +
                         " FROM t, hdb_attr a " +
                         " where a.attr_id = t.attr_id " +
                         " group by output_site";
@@ -294,7 +295,7 @@ public class DynamicSpatialRelationAlg
             ArrayList<Object> outputs;
             ArrayList<Object> values;
             ArrayList<Object> weights;
-            Object o = dbobj.get("output");
+            Object o = dbobj.get("output_site");
             Object v = dbobj.get("value");
             Object w = dbobj.get("weight");
             if (count == 1)
@@ -364,6 +365,7 @@ public class DynamicSpatialRelationAlg
             CTimeSeries v = entry.getValue();
             try {
                 debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getBriefDescription());
+                v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
