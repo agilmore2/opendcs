@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
  ab.start_date_time = A.start_date_time AND
  ab.loading_application_id NOT IN
  (SELECT loading_application_id FROM
- hdb_loading_application WHERE loading_application_name IN ('CU_estimation_process')
+ hdb_loading_application WHERE loading_application_name IN ('CU_Agg_Disagg')
  )
  ), -- d is query for source data and computes 5 year monthly averages
  mons as (
@@ -97,7 +97,7 @@ public class CULEstimateFromSource
                     new PropertySpec("validation_flag", PropertySpec.STRING,
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
-                            "(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+                            "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
             };
 
 
@@ -111,7 +111,7 @@ public class CULEstimateFromSource
 
     //AW:PROPERTIES
     public boolean rounding = false;
-    public String estimation_process = "CU_estimation_process";
+    public String estimation_process = "CU_Agg_Disagg";
     public String validation_flag = "";
     public String flags;
 

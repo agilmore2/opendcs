@@ -44,7 +44,7 @@ AND site_datatype_id = 29571 -- betatakin avg temp
 AND loading_application_id NOT IN
 	(
 	SELECT loading_application_id FROM hdb_loading_application WHERE
-	loading_application_name IN('CU_estimation_process','compedit')
+	loading_application_name IN('CU_Agg_Disagg','compedit')
 	)
 GROUP BY EXTRACT(MONTH FROM start_date_time)
 ORDER BY month
@@ -65,7 +65,7 @@ AND site_datatype_id = 29571 -- betatakin avg temp
 AND loading_application_id NOT IN
 	(
 	SELECT loading_application_id FROM hdb_loading_application WHERE
-	loading_application_name IN('CU_estimation_process','compedit')
+	loading_application_name IN('CU_Agg_Disagg','compedit')
 	)
 )
 ORDER BY dt
@@ -94,7 +94,7 @@ public class CULFillMissingClimateData
 				new PropertySpec("fillEndYr", PropertySpec.INT,
 					"(2020) Last year to fill data"),
 				new PropertySpec("estimation_process", PropertySpec.STRING,
-                        "(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+                        "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
 
 		};
 //AW:LOCALVARS_END
@@ -107,7 +107,7 @@ public class CULFillMissingClimateData
 //AW:PROPERTIES
 	public long fillStartYr = 1971;
 	public long fillEndYr = 2020;
-	public String estimation_process = "CU_estimation_process";
+	public String estimation_process = "CU_Agg_Disagg";
 	String _propertyNames[] = { "fillStartYr","fillEndYr","estimation_process" };
 //AW:PROPERTIES_END
 

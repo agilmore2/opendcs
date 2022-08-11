@@ -35,22 +35,24 @@ import java.util.regex.Pattern;
  decide if want to check for update or just have database catch duplicates
 
  working SQL query to compute data:
- WITH t AS
- (SELECT vals.VALUE, EXTRACT(MONTH FROM vals.start_date_time) mon, EXTRACT(YEAR FROM vals.start_date_time) yr
- FROM hdb_site_datatype sd, r_month vals, r_base base, hdb_loading_application app
- WHERE
- site_id = 4856 AND datatype_id = 1374 AND
- sd.site_datatype_id = vals.site_datatype_id and
- sd.site_datatype_id = base.site_datatype_id AND
- base.INTERVAL = 'month' AND base.start_date_time = vals.start_date_time AND
- base.loading_application_id = app.loading_application_id and
- app.loading_application_name != 'CU_estimation_process' -- string from property
- ),
- yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr)
- SELECT mon, round(avg(VALUE/tot),4)*100 coef FROM t, yrs
- WHERE t.yr = yrs.yr AND
- yrs.mons = 12 -- comment out if ignore_partials false
- group by mon order by mon;
+WITH t AS
+(SELECT vals.VALUE, EXTRACT(MONTH FROM vals.start_date_time) mon, EXTRACT(YEAR FROM vals.start_date_time) yr
+FROM hdb_site_datatype sd, r_month vals, r_base base, hdb_loading_application app
+WHERE
+sd.site_datatype_id = 29408 AND -- CARBON POWER PLANT POWER CU
+sd.site_datatype_id = vals.site_datatype_id AND
+sd.site_datatype_id = base.site_datatype_id AND
+base.INTERVAL = 'month' AND base.start_date_time = vals.start_date_time AND
+base.loading_application_id = app.loading_application_id AND
+app.loading_application_name != 'CU_Agg_Disagg' AND
+app.loading_application_name != 'compedit'
+),
+yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr)
+SELECT mon, avg(VALUE/tot) coef FROM t, yrs
+WHERE t.yr = yrs.yr AND
+yrs.mons = 12
+group by mon order by mon
+
 
  querying r_month for actual values to ensure validation has occurred.
  querying r_base to get loading application info
@@ -85,7 +87,7 @@ public class CULSourceDistributionComputeAlg
                     new PropertySpec("validation_flag", PropertySpec.STRING,
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
-                            "(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+                            "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
                     new PropertySpec("coeff_year", PropertySpec.INT,
                             "(1985) What year to write coefficients into"),
             };
@@ -102,7 +104,7 @@ public class CULSourceDistributionComputeAlg
     //AW:PROPERTIES
     public boolean ignore_partials = true;
     public boolean rounding = false;
-    public String estimation_process = "CU_estimation_process";
+    public String estimation_process = "CU_Agg_Disagg";
     public String validation_flag = "";
     public long coeff_year = 1985;
     public String flags;

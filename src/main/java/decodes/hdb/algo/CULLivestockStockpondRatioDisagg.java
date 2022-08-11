@@ -45,7 +45,7 @@ public class CULLivestockStockpondRatioDisagg
 				new PropertySpec("flags", PropertySpec.STRING,
 						"(empty) Always set these dataflags in the output."),
 				new PropertySpec("estimation_process", PropertySpec.STRING,
-						"(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+						"(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
 				new PropertySpec("coeff_year", PropertySpec.INT,
                         "(1985) What year to retrieve coefficients from"),
         };
@@ -59,7 +59,7 @@ public class CULLivestockStockpondRatioDisagg
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
-	public String estimation_process = "CU_estimation_process";
+	public String estimation_process = "CU_Agg_Disagg";
 	public String validation_flag = "";
 	public String flags;
 	public long coeff_year = 1985;

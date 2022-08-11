@@ -161,7 +161,7 @@ public class CULPowerTemporalDisagg
         int compEdit = Integer.valueOf((String) dbobj.get("loading_application_id"));
         
         query = "SELECT loading_application_id FROM hdb_loading_application"
-        		+ " WHERE loading_application_name = 'CU_estimation_process'";  
+        		+ " WHERE loading_application_name = 'CU_Agg_Disagg'";  
 
         status = this.doQuery(query, dbobj, db);
         int estimationApp = Integer.valueOf((String) dbobj.get("loading_application_id"));

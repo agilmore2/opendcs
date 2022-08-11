@@ -47,7 +47,7 @@ import java.util.regex.Pattern;
  ab.start_date_time = A.start_date_time AND
  ab.loading_application_id NOT IN
   (SELECT loading_application_id FROM
-  hdb_loading_application WHERE loading_application_name IN ('CU_estimation_process')
+  hdb_loading_application WHERE loading_application_name IN ('CU_Agg_Disagg')
   ) AND
  -- same for input2
  b.site_datatype_id = bb.site_datatype_id AND
@@ -55,7 +55,7 @@ import java.util.regex.Pattern;
  bb.start_date_time = b.start_date_time AND
  bb.loading_application_id NOT IN
   (SELECT loading_application_id FROM
-  hdb_loading_application WHERE loading_application_name IN ('CU_estimation_process')
+  hdb_loading_application WHERE loading_application_name IN ('CU_Agg_Disagg')
   )
  )
  SELECT  avg(ratio) FROM t
@@ -93,7 +93,7 @@ public class CULRatioComputeAlg
                     new PropertySpec("flags", PropertySpec.STRING,
                             "(empty) Always set these dataflags in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
-                            "(CU_estimation_process) Which loading application produces estimates that should be ignored."),
+                            "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
                     new PropertySpec("src_startyr", PropertySpec.INT,
                     		"(1976) Start year of source data used to calculate disagg coefficients"),
                     new PropertySpec("src_endyr", PropertySpec.INT,
@@ -113,7 +113,7 @@ public class CULRatioComputeAlg
 
     //AW:PROPERTIES
     public boolean rounding = false;
-    public String estimation_process = "CU_estimation_process";
+    public String estimation_process = "CU_Agg_Disagg";
     public String validation_flag = "";
     public long coeff_year = 1985;
     public long src_startyr = 1976;
