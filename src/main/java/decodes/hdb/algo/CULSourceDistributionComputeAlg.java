@@ -47,7 +47,7 @@ base.loading_application_id = app.loading_application_id AND
 app.loading_application_name != 'CU_Agg_Disagg' AND
 app.loading_application_name != 'compedit'
 ),
-yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr)
+yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr HAVING sum(VALUE) > 0)
 SELECT mon, avg(VALUE/tot) coef FROM t, yrs
 WHERE t.yr = yrs.yr AND
 yrs.mons = 12
@@ -248,7 +248,7 @@ public class CULSourceDistributionComputeAlg
                 " app.loading_application_name != '" + estimation_process + "' AND" +
                 " app.loading_application_name != 'compedit'" +
                 " )," +
-                " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr)" +
+                " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr HAVING sum(VALUE) > 0)" +
                 select_clause + // SELECT mon, avg(VALUE/tot) coef FROM t, yrs -- or rounding version
                 " WHERE t.yr = yrs.yr AND" +
                 require_12_clause + // yrs.mons = 12 --adds requirement that only whole years are used to compute coefficients
