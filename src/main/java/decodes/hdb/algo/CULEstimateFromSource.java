@@ -209,10 +209,10 @@ public class CULEstimateFromSource
         if (table_selector == null || !table_selector.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-        TimeZone tz = TimeZone.getTimeZone("GMT");
+        TimeZone tz = TimeZone.getTimeZone("MST");
         GregorianCalendar cal = new GregorianCalendar(tz);
         GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
-        cal1.setTime(_aggregatePeriodBegin);
+        cal1.setTime(_timeSliceBaseTime);
         cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
         SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
         sdf.setTimeZone(
@@ -241,8 +241,7 @@ public class CULEstimateFromSource
                 " rows between 4 preceding and current row) as aves " +
                 " FROM " +
                 " r_month a, r_base ab WHERE " +
-                " a.site_datatype_id = " + getSDI("input") + " AND -- pull from input1 " +
-                " -- join with r_base for input1 to check loading app " +
+                " a.site_datatype_id = " + getSDI("input") + " AND " +
                 " a.site_datatype_id = ab.site_datatype_id AND " +
                 " ab.INTERVAL = 'month' AND " +
                 " ab.start_date_time = A.start_date_time AND " +
@@ -250,13 +249,13 @@ public class CULEstimateFromSource
                 " (SELECT loading_application_id FROM " +
                 " hdb_loading_application WHERE loading_application_name IN ('compedit','" + estimation_process + "') " +
                 " ) " +
-                " ), -- d is query for source data and computes 5 year monthly averages " +
+                " ), " +
                 " mons as ( " +
                 " select date_time, d.value from table(dates_between('" + sdf.format(comp.getValidStart()) + "','" + sdf.format(comp.getValidEnd()) + "','month')), d " +
                 " where " +
                 " yr(+)  = extract(year from date_time) and " +
                 " mon(+) = extract(month from date_time) " +
-                " ) -- mons is the list of all dates and source values where they exist" +
+                " ) " +
                 select_clause + // SELECT mons.date_time, aves -- or rounding version
                 " FROM d, mons " +
                 " where mons.value is null and " +
