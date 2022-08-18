@@ -11,6 +11,7 @@ import decodes.util.PropertySpec;
 import ilex.var.NamedVariable;
 
 import java.sql.Connection;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -228,10 +229,10 @@ public class CULEstimateFromSource
         DBAccess db = new DBAccess(conn);
         RBASEUtils rbu = new RBASEUtils(dbobj,conn);
 
-        String select_clause = " SELECT mons.date_time, aves ";
+        String select_clause = " SELECT TO_CHAR(mons.date_time,'DD-MON-YYYY') date_time, aves ";
         if (rounding)
         {
-            select_clause = " SELECT mons.date_time, round(aves,7) aves "; // 7 used by other HDB aggregates
+            select_clause = " SELECT TO_CHAR(mons.date_time,'DD-MON-YYYY') date_time, round(aves,7) aves "; // 7 used by other HDB aggregates
         }
 
         query = " WITH d AS " +
@@ -251,7 +252,7 @@ public class CULEstimateFromSource
                 " ) " +
                 " ), " +
                 " mons as ( " +
-                " select date_time, d.value from table(dates_between('" + sdf.format(comp.getValidStart()) + "','" + sdf.format(comp.getValidEnd()) + "','month')), d " +
+                " select date_time, d.value from table(dates_between(TO_DATE('" + sdf.format(comp.getValidStart()) + "','DD-MON-YYYY'),TO_DATE('" + sdf.format(comp.getValidEnd()) + "','DD-MON-YYYY'),'month')), d " +
                 " where " +
                 " yr(+)  = extract(year from date_time) and " +
                 " mon(+) = extract(month from date_time) " +
@@ -276,6 +277,11 @@ public class CULEstimateFromSource
             warning(status);
             return;
         }
+        else if (Integer.parseInt(dbobj.get("rowCount").toString()) == 0) {
+        	warning(comp.getAlgorithmName()+"-"+alg_ver+" Aborted: see following error message");
+        	warning("No values to estimate for SDI " + getSDI("input"));
+        	return;
+        }
         // now retrieve records from coeff computation
         ArrayList<Object> dates  = (ArrayList<Object>) dbobj.get("date_time");
         ArrayList<Object> aves = (ArrayList<Object>) dbobj.get("aves");
@@ -287,9 +293,16 @@ public class CULEstimateFromSource
             Iterator<Object> it1 = dates.iterator();
             Iterator<Object> it2 = aves.iterator();
             while (it1.hasNext() && it2.hasNext()) {
-                Date mon = new Date( it1.next().toString());
+				try {
+					Date mon = sdf.parse( it1.next().toString());
+	                cal.setTime(mon);
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+					return;
+				}
                 double ave = Double.parseDouble(it2.next().toString());
-                cal.setTime(mon); // Months are 0 indexed in Java dates
+
 
                 debug3("FLAGS: " + flags);
                 if (flags != null)
