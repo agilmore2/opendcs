@@ -155,10 +155,10 @@ public class CULPowerTemporalDisagg
         // Get IDs of compedit and cu_estimation process loading application
 		// For now, source data is anything that doesn't come from either of these loading apps
         query = "SELECT loading_application_id FROM hdb_loading_application"
-        		+ " WHERE loading_application_name = 'compedit'";  
+        		+ " WHERE loading_application_name = 'CU_FillMissing'";  
 
         status = this.doQuery(query, dbobj, db);
-        int compEdit = Integer.valueOf((String) dbobj.get("loading_application_id"));
+        int fillMissingApp = Integer.valueOf((String) dbobj.get("loading_application_id"));
         
         query = "SELECT loading_application_id FROM hdb_loading_application"
         		+ " WHERE loading_application_name = 'CU_Agg_Disagg'";  
@@ -171,7 +171,7 @@ public class CULPowerTemporalDisagg
         query = "SELECT EXTRACT(YEAR FROM start_date_time) year, value FROM r_base"
 				+ " WHERE site_datatype_id = " + CUL_SDI.getValue()
 				+ " AND interval = 'year'"
-				+ " AND loading_application_id != " + compEdit
+				+ " AND loading_application_id != " + fillMissingApp
 				+ " AND loading_application_id != " + estimationApp
         		+ " ORDER BY EXTRACT(YEAR FROM start_date_time) ASC";
         
@@ -208,7 +208,7 @@ public class CULPowerTemporalDisagg
     				+ " WHERE site_datatype_id = " + CUL_SDI.getValue()
     				+ " AND interval = 'month'"
     				+ " AND EXTRACT(YEAR FROM start_date_time) = " + yr    				
-    				+ " AND loading_application_id != " + compEdit
+    				+ " AND loading_application_id != " + fillMissingApp
     				+ " AND loading_application_id != " + estimationApp
             		+ " ORDER BY EXTRACT(MONTH FROM start_date_time) ASC";
             this.doQuery(query, dbobj, db);

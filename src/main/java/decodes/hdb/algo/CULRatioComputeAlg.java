@@ -265,7 +265,7 @@ public class CULRatioComputeAlg
                 " ab.start_date_time = A.start_date_time AND\n" +
                 " ab.loading_application_id NOT IN\n" +
                 "  (SELECT loading_application_id FROM\n" +
-                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "','compedit')\n" +
+                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "','CU_FillMissing')\n" +
                 "  ) AND\n" +
                 " -- same for input2\n" +
                 " b.site_datatype_id = bb.site_datatype_id AND\n" +
@@ -273,7 +273,7 @@ public class CULRatioComputeAlg
                 " bb.start_date_time = b.start_date_time AND\n" +
                 " bb.loading_application_id NOT IN\n" +
                 "  (SELECT loading_application_id FROM\n" +
-                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "','compedit')\n" +
+                "  hdb_loading_application WHERE loading_application_name IN ('" + estimation_process + "','CU_FillMissing')\n" +
                 "  )\n" +
                 " )\n" +
                 select_clause; // SELECT avg(ratio) ratio FROM t -- or rounding version

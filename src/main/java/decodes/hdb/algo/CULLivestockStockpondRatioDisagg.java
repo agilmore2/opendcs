@@ -160,7 +160,7 @@ public class CULLivestockStockpondRatioDisagg
 				+ " AND rb.interval = 'year'"
 				+ " AND loading_application_id not in "
 				+ "  (select loading_application_id from hdb_loading_application where"
-				+ "  loading_application_name in ('compedit','"+ estimation_process + "'))"
+				+ "  loading_application_name in ('CU_FillMissing','"+ estimation_process + "'))"
         		+ " ORDER BY year ASC";
         
         status = this.doQuery(query, dbobj, db);

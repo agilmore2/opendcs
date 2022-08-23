@@ -246,7 +246,7 @@ public class CULSourceDistributionComputeAlg
                 " base.INTERVAL = 'month' AND base.start_date_time = vals.start_date_time AND" +
                 " base.loading_application_id = app.loading_application_id AND" +
                 " app.loading_application_name != '" + estimation_process + "' AND" +
-                " app.loading_application_name != 'compedit'" +
+                " app.loading_application_name != 'CU_FillMissing'" +
                 " )," +
                 " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr HAVING sum(VALUE) > 0)" +
                 select_clause + // SELECT mon, avg(VALUE/tot) coef FROM t, yrs -- or rounding version

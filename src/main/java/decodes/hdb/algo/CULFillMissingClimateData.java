@@ -194,7 +194,7 @@ public class CULFillMissingClimateData
         		+ "AND loading_application_id NOT IN\n"
         		+	"(\n"
         		+	"SELECT loading_application_id FROM hdb_loading_application WHERE\n"
-        		+	"loading_application_name IN('" + estimation_process + "','compedit')\n"
+        		+	"loading_application_name IN('" + estimation_process + "','CU_FillMissing')\n"
         		+	")\n"
         		+ "GROUP BY EXTRACT(MONTH FROM start_date_time)\n" 
         		+ "ORDER BY month\n";
@@ -228,7 +228,7 @@ public class CULFillMissingClimateData
         		+ "AND loading_application_id NOT IN\n"
         		+ "	(\n"
         		+ "	SELECT loading_application_id FROM hdb_loading_application WHERE\n"
-        		+ "	loading_application_name IN('" + estimation_process + "','compedit')\n"
+        		+ "	loading_application_name IN('" + estimation_process + "','CU_FillMissing')\n"
         		+ "	)\n"
         		+ ")\n"
         		+ "ORDER BY dt";

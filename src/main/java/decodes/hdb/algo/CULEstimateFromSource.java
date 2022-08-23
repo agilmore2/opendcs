@@ -248,7 +248,7 @@ public class CULEstimateFromSource
                 " ab.start_date_time = A.start_date_time AND " +
                 " ab.loading_application_id NOT IN " +
                 " (SELECT loading_application_id FROM " +
-                " hdb_loading_application WHERE loading_application_name IN ('compedit','" + estimation_process + "') " +
+                " hdb_loading_application WHERE loading_application_name IN ('CU_FillMissing','" + estimation_process + "') " +
                 " ) " +
                 " ), " +
                 " mons as ( " +
