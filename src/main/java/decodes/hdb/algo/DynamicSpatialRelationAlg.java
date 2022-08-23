@@ -89,12 +89,14 @@ public class DynamicSpatialRelationAlg
     // Enter any local class variables needed by the algorithm.
     String alg_ver = "1.0";
     String query;
+    String status;
     String selectClause;
+
     Connection conn = null;
     DBAccess db = null;
     DataObject dbobj = new DataObject();
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = new HashMap<String,CTimeSeries>();
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
 
     PropertySpec[] specs =
             {
@@ -155,12 +157,10 @@ public class DynamicSpatialRelationAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
-
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         db = new DBAccess(conn);
         dao = tsdb.makeTimeSeriesDAO();
-        String status;
 
         //get output TS_IDs
         query = " SELECT " +
@@ -173,13 +173,12 @@ public class DynamicSpatialRelationAlg
                 " (SELECT attr_id FROM hdb_attr WHERE attr_name = '" + attribute + "') AND" +
                 " sr.a_site_id = sourcesd.site_id AND " +
                 " outputsdis.site_id = sr.b_site_id AND " +
-                " outputsdis.datatype_id = sourcesd.datatype_id AND " +
+                " outputsdis.datatype_id = sourcesd.datatype_id AND " + // assumes output datatype = input datatype
                 " id.site_datatype_id = outputsdis.site_datatype_id AND " +
                 " id.interval = '" + getInterval("input") + "' AND " +
                 " id.table_selector = '" + getTableSelector("input") + "'";
 
         debug3("Before TimeSlice Query: " + query);
-
         status = db.performQuery(query,dbobj);
         if (status.startsWith("ERROR"))
         {
@@ -187,38 +186,8 @@ public class DynamicSpatialRelationAlg
             warning(status);
             return;
         }
-        // Need to handle multiple TS_IDs!
-        int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        ArrayList<Object> tsids;
 
-        if (count == 0)
-        {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
-            warning(status);
-            return;
-        }
-        else if (count == 1)
-        {
-            tsids = new ArrayList<Object>();
-            tsids.add(dbobj.get("ts"));
-        }
-        else
-        {
-            tsids = (ArrayList<Object>) dbobj.get("ts");
-        }
-
-        Iterator<Object> itId = tsids.iterator();
-        try {
-            while(itId.hasNext()) {
-                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
-                debug3("Output Timeseries ID: " + id);
-                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.put(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
-            return;
-        }
+        if (!findOutputSeries(dbobj)) return;
 
         // now build query for sums
         query = "  WITH t AS " +
@@ -251,6 +220,47 @@ public class DynamicSpatialRelationAlg
                         " group by output_site";
 
 //AW:BEFORE_TIMESLICES_END
+    }
+
+    /**
+     * runs supplied query for output timeseries site ids and ts_ids, updates global outputSeries hashmap
+     * @param dbobj result from a db query
+     * @return false if failed
+     */
+    private boolean findOutputSeries(DataObject dbobj) {
+
+        // Need to handle multiple TS_IDs!
+        int count = Integer.parseInt(dbobj.get("rowCount").toString());
+        ArrayList<Object> tsids;
+
+        if (count == 0)
+        {
+            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
+            return false;
+        }
+        else if (count == 1)
+        {
+            tsids = new ArrayList<Object>();
+            tsids.add(dbobj.get("ts"));
+        }
+        else
+        {
+            tsids = (ArrayList<Object>) dbobj.get("ts");
+        }
+
+        Iterator<Object> itId = tsids.iterator();
+        try {
+            while(itId.hasNext()) {
+                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
+                debug3("Output Timeseries ID: " + id);
+                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
+                outputSeries.put(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
+            }
+        } catch (Exception e) {
+            warning(e.toString());
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -364,13 +374,14 @@ public class DynamicSpatialRelationAlg
             String k = entry.getKey();
             CTimeSeries v = entry.getValue();
             try {
-                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getBriefDescription());
+                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
             }
         }
+        outputSeries.clear();
 //AW:AFTER_TIMESLICES_END
     }
 
