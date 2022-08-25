@@ -254,7 +254,7 @@ public class DynamicSpatialRelationAlg
                 DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
                 debug3("Output Timeseries ID: " + id);
                 TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.put(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
+                outputSeries.putIfAbsent(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
             }
         } catch (Exception e) {
             warning(e.toString());
@@ -382,6 +382,7 @@ public class DynamicSpatialRelationAlg
             }
         }
         outputSeries.clear();
+        dao.close();
 //AW:AFTER_TIMESLICES_END
     }
 

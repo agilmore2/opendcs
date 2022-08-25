@@ -384,7 +384,7 @@ public class CULEstimateCUFromPopulation
                     String id = itO.next().toString();
                     debug3("Output Timeseries ID: " + id);
                     Double value_out = new Double(itV.next().toString());
-                    debug3(comp.getName() + "-" + alg_ver + "Setting output for timeslice: " + debugSdf.format(this._timeSliceBaseTime) +
+                    debug3(comp.getName() + "-" + alg_ver + " Setting output for timeslice: " + debugSdf.format(this._timeSliceBaseTime) +
                             " value: " + value_out);
                     TimedVariable tv = new TimedVariable(_timeSliceBaseTime, value_out, TO_WRITE);
                     if (flags.length() > 0)
@@ -437,7 +437,7 @@ public class CULEstimateCUFromPopulation
                 DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
                 debug3("Output Timeseries ID: " + id);
                 TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.put(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
+                outputSeries.putIfAbsent(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
             }
         } catch (Exception e) {
             warning(e.toString());
@@ -463,7 +463,7 @@ public class CULEstimateCUFromPopulation
             String k = entry.getKey();
             CTimeSeries v = entry.getValue();
             try {
-                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier());
+                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier() + " with size: " + v.size());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
@@ -471,7 +471,7 @@ public class CULEstimateCUFromPopulation
             }
         }
         outputSeries.clear();
-
+        dao.close();
 //AW:AFTER_TIMESLICES_END
     }
 
