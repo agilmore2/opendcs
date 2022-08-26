@@ -176,8 +176,29 @@ public class CULPowerTemporalDisagg
         		+ " ORDER BY EXTRACT(YEAR FROM start_date_time) ASC";
         
         status = this.doQuery(query, dbobj, db);
-        ArrayList<Object> YearstoDisagg = (ArrayList<Object>) dbobj.get("year");
-        ArrayList<Object> AnnualSourceData = (ArrayList<Object>) dbobj.get("value");
+        int count = Integer.parseInt(dbobj.get("rowCount").toString());
+        
+        ArrayList<Object> YearstoDisagg;
+        ArrayList<Object> AnnualSourceData;
+        if (count == 0) {
+        	warning(comp.getAlgorithmName() + " Aborted: see following error message");
+        	warning("No annual values to disagg for SDI " + getSDI("input"));
+        	return;
+        }
+        else if (count == 1) {
+        	YearstoDisagg = new ArrayList<Object>();
+        	AnnualSourceData = new ArrayList<Object>();
+        	
+        	YearstoDisagg.add(dbobj.get("year"));
+        	AnnualSourceData.add(dbobj.get("value"));
+        }
+        else {
+            YearstoDisagg = (ArrayList<Object>) dbobj.get("year");
+            AnnualSourceData = (ArrayList<Object>) dbobj.get("value");
+        }
+        	
+        
+
         
 		// Get monthly coefficients
         // Right now getting all rows works, but should probably make it smarter to look at a specific year, or at least confirm there are 12 values
