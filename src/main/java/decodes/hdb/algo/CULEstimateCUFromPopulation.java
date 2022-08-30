@@ -340,19 +340,17 @@ public class CULEstimateCUFromPopulation
 
         debug3("TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
-        if (status.startsWith("ERROR"))
-        {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
-            warning(status);
-            return;
-        }
-
-        if (!findOutputSeries(dbobj)) return;
-
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
         {
             warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted at: " + debugSdf.format(this._timeSliceBaseTime) +
                     " See following error message:");
+            warning(status);
+            throw new DbCompException("Error retrieving timeseries for output, cannot continue");
+        }
+
+        if (status.startsWith("ERROR")) // unreachable, will throw exception above
+        {
+
             warning(status);
             // deletions?!?
             //outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, 0, TO_DELETE));

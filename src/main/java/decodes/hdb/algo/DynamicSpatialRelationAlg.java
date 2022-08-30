@@ -180,14 +180,12 @@ public class DynamicSpatialRelationAlg
 
         debug3("Before TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
             warning(status);
-            return;
+            throw new DbCompException("Error retrieving timeseries for output, cannot continue");
         }
-
-        if (!findOutputSeries(dbobj)) return;
 
         // now build query for sums
         query = "  WITH t AS " +
