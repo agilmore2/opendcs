@@ -21,7 +21,7 @@ import java.util.TimeZone;
 //AW:JAVADOC
 
 /**
-Type a javadoc-style comment describing the algorithm class.
+Computes livestock and stockpond CU by disaggregating a combined number by multiplying with a computed ratio
 
 
  */
@@ -32,7 +32,7 @@ public class CULLivestockStockpondRatioDisagg
 //AW:INPUTS
 	public double totalInput;	//AW:TYPECODE=i
 	public double coefficient;
-	String _inputNames[] = { "totalInput" , "coefficient"};
+	String[] _inputNames = { "totalInput" , "coefficient"};
 //AW:INPUTS_END
 
 //AW:LOCALVARS
@@ -55,7 +55,7 @@ public class CULLivestockStockpondRatioDisagg
 //AW:OUTPUTS
 	public NamedVariable livestock = new NamedVariable("livestock", 0);
 	public NamedVariable stockpond = new NamedVariable("stockpond", 0);
-	String _outputNames[] = { "livestock", "stockpond" };
+	String[] _outputNames = { "livestock", "stockpond" };
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
