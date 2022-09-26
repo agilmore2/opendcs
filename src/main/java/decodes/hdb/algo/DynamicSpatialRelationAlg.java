@@ -91,7 +91,6 @@ public class DynamicSpatialRelationAlg
     String query;
     String status;
     String selectClause;
-    boolean foundOutputTSIDs = false;
 
     Connection conn = null;
     DBAccess db = null;
@@ -181,14 +180,14 @@ public class DynamicSpatialRelationAlg
 
         debug3("Before TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
-        
-        foundOutputTSIDs = findOutputSeries(dbobj);
-        if (status.startsWith("ERROR"))
+
+        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
             warning(status);
             throw new DbCompException("Error retrieving timeseries for output, cannot continue");
-        }else if(!foundOutputTSIDs)
+        }
+        if(outputSeries.isEmpty())
         {
         	// If the query succeeds, but finds 0 output tsid's this isn't necessarily an error
         	// For example, many minor reservoirs are not aggregated to a state/huc/cp
@@ -243,8 +242,8 @@ public class DynamicSpatialRelationAlg
 
         if (count == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
-            return false;
+            warning(comp.getName() + "-" + alg_ver + " Warning: zero output TS_IDs");
+            return true; // not an error
         }
         else if (count == 1)
         {
@@ -285,7 +284,7 @@ public class DynamicSpatialRelationAlg
             throws DbCompException
     {
 //AW:TIMESLICE
-	    if(!foundOutputTSIDs)
+	    if (outputSeries.isEmpty())
 	    {
 	    	return;
 	    }
@@ -382,7 +381,7 @@ public class DynamicSpatialRelationAlg
         // For Aggregating algorithms, this is done after each aggregate
         // period.
     	
-	    if(!foundOutputTSIDs)
+	    if (outputSeries.isEmpty())
 	    {
 	    	return;
 	    }
