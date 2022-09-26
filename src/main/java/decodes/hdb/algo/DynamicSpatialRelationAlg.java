@@ -91,6 +91,7 @@ public class DynamicSpatialRelationAlg
     String query;
     String status;
     String selectClause;
+    boolean foundOutputTSIDs = false;
 
     Connection conn = null;
     DBAccess db = null;
@@ -180,11 +181,20 @@ public class DynamicSpatialRelationAlg
 
         debug3("Before TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
-        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
+        
+        foundOutputTSIDs = findOutputSeries(dbobj);
+        if (status.startsWith("ERROR"))
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
             warning(status);
             throw new DbCompException("Error retrieving timeseries for output, cannot continue");
+        }else if(!foundOutputTSIDs)
+        {
+        	// If the query succeeds, but finds 0 output tsid's this isn't necessarily an error
+        	// For example, many minor reservoirs are not aggregated to a state/huc/cp
+        	// For these cases, we just want to record that the input tsid has no outputs and move on to the next input
+        	// Warning already handled in the findOutputSeries function
+        	return;
         }
 
         // now build query for sums
@@ -275,6 +285,11 @@ public class DynamicSpatialRelationAlg
             throws DbCompException
     {
 //AW:TIMESLICE
+	    if(!foundOutputTSIDs)
+	    {
+	    	return;
+	    }
+    	
         debug3(comp.getName() + "-" + alg_ver + " BEGINNING OF doAWTimeSlice for period: " +
                 _timeSliceBaseTime + " SDI: " + getSDI("input"));
 
@@ -366,6 +381,11 @@ public class DynamicSpatialRelationAlg
         // For TimeSlice algorithms this is done once after all slices.
         // For Aggregating algorithms, this is done after each aggregate
         // period.
+    	
+	    if(!foundOutputTSIDs)
+	    {
+	    	return;
+	    }
 
         // set the outputs. If some timesteps failed, must be marked for delete above
         for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
