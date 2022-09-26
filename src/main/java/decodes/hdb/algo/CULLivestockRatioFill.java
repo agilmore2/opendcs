@@ -1,6 +1,5 @@
 package decodes.hdb.algo;
 
-import decodes.db.Constants;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
@@ -11,14 +10,11 @@ import decodes.tsdb.ParmRef;
 import decodes.tsdb.TimeSeriesIdentifier;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.PropertySpec;
-import ilex.util.TextUtil;
-import ilex.var.NamedVariable;
 import ilex.var.TimedVariable;
 import opendcs.dai.TimeSeriesDAI;
 
 import java.sql.Connection;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import static decodes.tsdb.VarFlags.TO_WRITE;
 import static java.lang.Math.abs;
@@ -30,66 +26,63 @@ import static java.lang.Math.abs;
 //AW:JAVADOC
 
 /**
- This algorithm computes the average ratio between all county hucs in the basin for the input timeseries
- and the total for the basin for use in estimating the
- distribution of the timeseries when only the basin total is known.
+ This algorithm computes County HUC CU from the basin total multipled by a computed ratio
  Only applies to R_YEAR
 
+ total: input value at state/trib level
+ ratio: reference SDI used to find ratios stored at basin level
+
  ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
+ ObjectType: detemines objecttype of output timeseries
 
  Algorithm is as follows:
- query average ratio of one timeseries to the total
- store value in r_year 1985 by convention, set by computation output variables
- decide if want to check for update or just have database catch duplicates
+ query output timeseries determined by basin_id and objecttype
+ query ratios for every output timeseries from 1985 by convention, datatype determined by input ratio parmref
 
  working SQL query to compute data:
- with s as
- ( select vals.value, peer.site_id, EXTRACT(YEAR FROM vals.start_date_time) yr
- from
- r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig
+ select outts.ts_id ts, r.value ratio, out.site_id site from 
+ hdb_site_datatype insd, hdb_site out,
+ hdb_site_datatype outsd, cp_ts_id outts,
+ hdb_site_datatype inratsd, hdb_site_datatype ratiosd,
+ r_year r
  where
- vals.site_datatype_id = peersd.site_datatype_id and peersd.site_id = peer.site_id and
- trigsd.site_id = trig.site_id and peer.basin_id = trig.basin_id and
- trig.objecttype_id = peer.objecttype_id and
- trigsd.datatype_id = peersd.datatype_id and
- trigsd.site_datatype_id =   33571   and
- EXTRACT(YEAR FROM vals.start_date_time) between 1986 and 1995
- ), t as
- (select yr, sum(s.value) total from s group by yr)
- SELECT avg(s.value/t.total) ratio
- , outts.ts_id outid
- from s, t, hdb_site_datatype outsd, hdb_site_datatype ratiosd, cp_ts_id outts
- where
- s.yr = t.yr and
- s.site_id = outsd.site_id and
- outsd.datatype_id = ratiosd.datatype_id and
- outsd.site_datatype_id = outts.site_datatype_id and
- outts.interval = 'year' AND
+ insd.site_datatype_id = 25058 and
+ insd.site_id = out.basin_id and  
+ insd.datatype_id = outsd.datatype_id and  
+ outsd.site_id = out.site_id and
+ outsd.site_datatype_id = outts.site_datatype_id and  
+ outts.interval = 'year' AND  
  outts.table_selector = 'R_' AND
- ratiosd.site_datatype_id =   34527
- group by outts.ts_id ;
+ inratsd.site_datatype_id = 34954 AND
+ inratsd.datatype_id = ratiosd.datatype_id and
+ ratiosd.site_id = out.site_id and
+ ratiosd.site_datatype_id = r.site_datatype_id AND
+ extract(year from r.start_date_time) = 1985
 
  querying r_year for actual values to ensure validation has occurred.
 
 
  */
 //AW:JAVADOC_END
-public class CULStateTribLivestockRatioCompute
+public class CULLivestockRatioFill
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double livestock;	//AW:TYPECODE=i
-    String[] _inputNames = { "livestock" };
+    public double total;	//AW:TYPECODE=i
+    public double ratio;	//AW:TYPECODE=i
+    String[] _inputNames = { "total", "ratio" };
 //AW:INPUTS_END
 
     //AW:LOCALVARS
     // Enter any local class variables needed by the algorithm.
     String alg_ver = "1.0";
+    private int flag = TO_WRITE;
     String query;
     boolean do_setoutput = true;
     Connection conn = null;
     TimeSeriesDAI dao;
     HashMap<String, CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
+    HashMap<String, Double> ratioMap = new HashMap<>();
 
     PropertySpec[] specs =
             {
@@ -99,10 +92,6 @@ public class CULStateTribLivestockRatioCompute
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("flags", PropertySpec.STRING,
                             "(empty) Always set these dataflags in the output."),
-                    new PropertySpec("src_startyr", PropertySpec.INT,
-                    		"(1986) Start year of source data used to calculate disagg coefficients"),
-                    new PropertySpec("src_endyr", PropertySpec.INT,
-                    		"(1995) End year of source data used to calculate disagg coefficients"),
                     new PropertySpec("coeff_year", PropertySpec.INT,
                             "(1985) What year to write coefficients into"),
             };
@@ -112,20 +101,19 @@ public class CULStateTribLivestockRatioCompute
 //AW:LOCALVARS_END
 
     //AW:OUTPUTS
-    public NamedVariable ratio = new NamedVariable("ratio", 0);
-    String[] _outputNames = { "ratio"};
+    String[] _outputNames = {};
+
 //AW:OUTPUTS_END
 
     //AW:PROPERTIES
     public boolean rounding = false;
     public String validation_flag = "";
     public long coeff_year = 1985;
-    public long src_startyr = 1986;
-    public long src_endyr = 1995;
     public String flags = "";
 
-    String[] _propertyNames = { "validation_flag", "rounding", "coeff_year", "flags", "src_startyr", "src_endyr" };
-//AW:PROPERTIES_END
+    String[] _propertyNames = { "validation_flag", "rounding", "coeff_year", "flags" };
+
+    //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
 
@@ -137,6 +125,7 @@ public class CULStateTribLivestockRatioCompute
     {
 //AW:INIT
         _awAlgoType = AWAlgoType.TIME_SLICE; // doesn't matter and don't want automatic deletes
+
 //AW:INIT_END
 
 //AW:USERINIT
@@ -159,70 +148,35 @@ public class CULStateTribLivestockRatioCompute
         do_setoutput = true;
         conn = null;
         dao = tsdb.makeTimeSeriesDAO();
-
-//AW:BEFORE_TIMESLICES_END
-    }
-
-    /**
-     * Do the algorithm for a single time slice.
-     * AW will fill in user-supplied code here.
-     * Base class will set inputs prior to calling this method.
-     * User code should call one of the setOutput methods for a time-slice
-     * output variable.
-     *
-     * @throws DbCompException (or subclass thereof) if execution of this
-     *        algorithm is to be aborted.
-     */
-    protected void doAWTimeSlice()
-            throws DbCompException
-    {
-//AW:TIMESLICE
-        // Enter code to be executed at each time-slice.
-//AW:TIMESLICE_END
-    }
-
-    /**
-     * This method is called once after iterating all time slices.
-     */
-    protected void afterTimeSlices()
-            throws DbCompException
-    {
-//AW:AFTER_TIMESLICES
-        // This code will be executed once after each group of time slices.
-        // For TimeSlice algorithms this is done once after all slices.
-        // For Aggregating algorithms, this is done after each aggregate
-        // period.
-        // calculate number of days in the month in case the numbers are for month derivations
-        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("livestock"));
         do_setoutput = true;
-        ParmRef liveRef = getParmRef("livestock");
+
+        // handle flags and output series here because they're dynamic
+        if (!flags.isEmpty())
+            flag |= HdbFlags.hdbDerivation2flag(flags);
+        if (!validation_flag.isEmpty())
+            flag |= HdbFlags.hdbValidation2flag(validation_flag.charAt(1));
 
         // get the input and output parameters and see if its model data
+        ParmRef liveRef = getParmRef("total");
         if (liveRef == null) {
-            warning("Unknown variable 'livestock'");
+            warning("Unknown variable 'total'");
             return;
         }
-
         DbKey liveSDI = liveRef.timeSeries.getSDI();
-
-        String input_interval1 = liveRef.compParm.getInterval();
-        if (input_interval1 == null || !input_interval1.equals("year"))
-            warning("Wrong input1 interval for " + comp.getAlgorithmName());
-        String table_selector1 = liveRef.compParm.getTableSelector();
-        if (table_selector1 == null || !table_selector1.equals("R_"))
-            warning("Invalid table selector for algorithm, only R_ supported");
 
         ParmRef ratioRef = getParmRef("ratio");
         if (ratioRef == null) {
-            warning("Unknown output variable 'ratio'");
+            warning("Unknown variable 'ratio'");
             return;
         }
         DbKey ratioSDI = ratioRef.timeSeries.getSDI();
 
-        TimeZone tz = TimeZone.getTimeZone("MST");
-        GregorianCalendar cal = new GregorianCalendar(tz);
-        //always setting this output in the year set by user
-        cal.set((int)coeff_year, 0, 1, 0, 0); // Months are 0 indexed in Java dates
+        String input_interval1 = liveRef.compParm.getInterval();
+        if (input_interval1 == null || !input_interval1.equals("year"))
+            warning("Wrong total interval for " + comp.getAlgorithmName());
+        String table_selector1 = liveRef.compParm.getTableSelector();
+        if (table_selector1 == null || !table_selector1.equals("R_"))
+            warning("Invalid table selector for algorithm, only R_ supported");
 
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
@@ -231,41 +185,25 @@ public class CULStateTribLivestockRatioCompute
         DataObject dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
         DBAccess db = new DBAccess(conn);
-        TimeSeriesDAI dao = tsdb.makeTimeSeriesDAO();
 
-        String select_clause = "SELECT avg(s.value/t.total) ratio ";
-
-        if (rounding)
-        {
-            select_clause = "SELECT round(avg(s.value/t.total),11) ratio "; // 7 used by other HDB aggregates, these values get small though!
-        }
-
-        query = " with s as " +
-                "( select vals.value, peer.site_id, EXTRACT(YEAR FROM vals.start_date_time) yr " +
-                "from " +
-                "r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig " +
+        query = "select outts.ts_id ts, r.value ratio from " +
+                "hdb_site_datatype insd, hdb_site out, " +
+                "hdb_site_datatype outsd, cp_ts_id outts, " +
+                "hdb_site_datatype inratsd, hdb_site_datatype ratiosd, " +
+                "r_year r " +
                 "where " +
-                "vals.site_datatype_id = peersd.site_datatype_id and peersd.site_id = peer.site_id and  " +
-                "trigsd.site_id = trig.site_id and peer.basin_id = trig.basin_id and " +
-                "trig.objecttype_id = peer.objecttype_id and " +
-                "trigsd.datatype_id = peersd.datatype_id and " +
-                "trigsd.site_datatype_id = " + liveSDI + " and " +
-                "EXTRACT(YEAR FROM vals.start_date_time) between " + src_startyr + " AND " + src_endyr + " " +
-                "), t as " +
-                "(select yr, sum(s.value) total from s group by yr) " +
-                select_clause +
-                ", outts.ts_id ts " +
-                "from s, t, hdb_site_datatype outsd, hdb_site_datatype ratiosd, cp_ts_id outts " +
-                "where " +
-                "s.yr = t.yr and " +
-                "s.site_id = outsd.site_id and " +
-                "outsd.datatype_id = ratiosd.datatype_id and " +
+                "insd.site_datatype_id = " + liveSDI + " and " +
+                "insd.site_id = out.basin_id and " +
+                "insd.datatype_id = outsd.datatype_id and " +
+                "outsd.site_id = out.site_id and " +
                 "outsd.site_datatype_id = outts.site_datatype_id and " +
                 "outts.interval = '" + getInterval("ratio") + "' and " +
                 "outts.table_selector = '" + getTableSelector("ratio") + "' and " +
-                "ratiosd.site_datatype_id = " + ratioSDI + " " +
-                "group by outts.ts_id ";
-
+                "inratsd.site_datatype_id = " + ratioSDI + " AND " +
+                "inratsd.datatype_id = ratiosd.datatype_id and " +
+                "ratiosd.site_id = out.site_id and " +
+                "ratiosd.site_datatype_id = r.site_datatype_id AND " +
+                "extract(year from r.start_date_time) = " + coeff_year;
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
@@ -297,44 +235,63 @@ public class CULStateTribLivestockRatioCompute
             tsids = (ArrayList<Object>)t;
         }
 
-        double total = 0;
-        int flag = TO_WRITE;
-        if (!flags.isEmpty())
-            flag |= HdbFlags.hdbDerivation2flag(flags);
-        if (!validation_flag.isEmpty())
-            flag |= HdbFlags.hdbValidation2flag(validation_flag.charAt(1));
-        if (tsdb.isHdb() && TextUtil.str2boolean(comp.getProperty("OverwriteFlag")))
-        {
-            //waiting on release of overwrite flag upstream
-            //flag |= HdbFlags.HDBF_OVERWRITE_FLAG);
-        }
-
         Iterator<Object> itR = ratios.iterator();
         Iterator<Object> itT = tsids.iterator();
         try {
             while(itR.hasNext() && itT.hasNext()) {
                 String id = itT.next().toString();
-                debug3("Output TS ID: " + id);
-                double ratio_out = new Double(itR.next().toString());
-                debug3(comp.getName() + "-" + alg_ver + " Setting output for year: " + debugSdf.format(cal.getTime()) +
-                        " ratio: " + ratio_out);
-                TimedVariable tv = new TimedVariable(cal.getTime(), ratio_out, flag);
-                total += ratio_out;
-                outputSeries.get(id).addSample(tv);
+                ratioMap.putIfAbsent(id, Double.valueOf(itR.next().toString()));
             }
         } catch (Exception e) {
             warning(e.toString());
             return;
         }
-        if (abs(total - 1.0D) > 1e-7) {
-            warning("Total basin ratios did not sum to 1.0! Ids: " + Arrays.toString(tsids.toArray()));
-        }
 
-        //waiting on release of overwrite flag upstream, may want this to trigger recomputation of disagg?
-        //flag |= HdbFlags.HDBF_OVERWRITE_FLAG);
-        TimedVariable tv = new TimedVariable(cal.getTime(), total, flag);
-        ratioRef.timeSeries.addSample(tv);
-        outputSeries.put(ratioRef.tsid.toString(),ratioRef.timeSeries);
+        //AW:BEFORE_TIMESLICES_END
+    }
+
+    /**
+     * Do the algorithm for a single time slice.
+     * AW will fill in user-supplied code here.
+     * Base class will set inputs prior to calling this method.
+     * User code should call one of the setOutput methods for a time-slice
+     * output variable.
+     *
+     * @throws DbCompException (or subclass thereof) if execution of this
+     *        algorithm is to be aborted.
+     */
+    protected void doAWTimeSlice()
+            throws DbCompException
+    {
+//AW:TIMESLICE
+        TimeZone tz = TimeZone.getTimeZone("MST");
+        GregorianCalendar cal = new GregorianCalendar(tz);
+        GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
+        cal1.setTime(_timeSliceBaseTime);
+        cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
+
+        for (Map.Entry<String, Double> entry : ratioMap.entrySet()) {
+            String id = entry.getKey();
+            Double rat = entry.getValue();
+            // total is value suppled by CP for this state/trib
+            outputSeries.get(id).addSample(new TimedVariable(cal.getTime(), total * rat, flag));
+        }
+//AW:TIMESLICE_END
+    }
+
+    /**
+     * This method is called once after iterating all time slices.
+     */
+    protected void afterTimeSlices()
+            throws DbCompException
+    {
+//AW:AFTER_TIMESLICES
+        // This code will be executed once after each group of time slices.
+        // For TimeSlice algorithms this is done once after all slices.
+        // For Aggregating algorithms, this is done after each aggregate
+        // period.
+        // calculate number of days in the month in case the numbers are for month derivations
+        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("total"));
 
         for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
             String k = entry.getKey();
@@ -348,10 +305,6 @@ public class CULStateTribLivestockRatioCompute
             }
         }
         outputSeries.clear();
-
-        // don't need to complain that ratio can't be saved from non-aggregating, we already saved it
-        ratioRef.timeSeries.deleteAll();
-
         dao.close();
 //AW:AFTER_TIMESLICES_END
     }
