@@ -118,7 +118,7 @@ public class CULRatioComputeAlg
     public long coeff_year = 1985;
     public long src_startyr = 1976;
     public long src_endyr = 1985;
-    public String flags;
+    public String flags = "";
 
     String[] _propertyNames = { "estimation_process", "validation_flag", "rounding", "coeff_year", "flags","src_startyr","src_endyr" };
 //AW:PROPERTIES_END
@@ -194,7 +194,7 @@ public class CULRatioComputeAlg
         // period.
         // calculate number of days in the month in case the numbers are for month derivations
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
-                _aggregatePeriodBegin + " SDI: " + getSDI("input"));
+                _aggregatePeriodBegin + " SDI: " + getSDI("livestock"));
         do_setoutput = true;
         ParmRef liveRef = getParmRef("livestock");
         ParmRef stockRef = getParmRef("stockpond");
@@ -223,9 +223,9 @@ public class CULRatioComputeAlg
         if (table_selector2 == null || !table_selector2.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-        ParmRef ratioRef = getParmRef("output1");
+        ParmRef ratioRef = getParmRef("ratio");
         if (ratioRef == null)
-            warning("Unknown output variable 'OUTPUT'");
+            warning("Unknown output variable 'ratio'");
 
         TimeZone tz = TimeZone.getTimeZone("MST");
         GregorianCalendar cal = new GregorianCalendar(tz);
@@ -297,11 +297,11 @@ public class CULRatioComputeAlg
         cal.set((int)coeff_year, 0, 1, 0, 0); // Months are 0 indexed in Java dates
         if (do_setoutput) {
             debug3("FLAGS: " + flags);
-            if (flags != null)
+            if (!flags.isEmpty())
                 setHdbDerivationFlag(ratio, flags);
             //
             /* added to allow users to automatically set the Validation column */
-            if (validation_flag.length() > 0)
+            if (!validation_flag.isEmpty())
                 setHdbValidationFlag(ratio, validation_flag.charAt(1));
 
             debug3("Setting output for " + debugSdf.format(cal.getTime()));

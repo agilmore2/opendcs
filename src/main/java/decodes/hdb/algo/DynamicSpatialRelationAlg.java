@@ -28,7 +28,7 @@ import static decodes.tsdb.VarFlags.TO_WRITE;
 
 /**
  This algorithm spatially aggregates sites to a target site defined by
- an attribute id and ref_spatial_relation. Does any aggregating function other than SUM make sense?
+ an attribute id and a weight in ref_spatial_relation.
 
  ATTRIBUTE: HDB_ATTR entry to use:
  If attr_value_type is string or date, each site contributes 100% to site_b
@@ -349,9 +349,9 @@ public class DynamicSpatialRelationAlg
                     debug3(comp.getName() + "-" + alg_ver + "Setting output for timeslice: " + debugSdf.format(this._timeSliceBaseTime) +
                             " value: " + value_out + " weight: " + weight_out);
                     TimedVariable tv = new TimedVariable(_timeSliceBaseTime, value_out, TO_WRITE);
-                    if (flags.length() > 0)
+                    if (!flags.isEmpty())
                         tv.setFlags(tv.getFlags() | HdbFlags.hdbDerivation2flag(flags));
-                    if (validation_flag.length() > 0)
+                    if (!validation_flag.isEmpty())
                         tv.setFlags(tv.getFlags() | HdbFlags.hdbValidation2flag(validation_flag.charAt(1)));
                     if (tsdb.isHdb() && TextUtil.str2boolean(comp.getProperty("OverwriteFlag")))
                     {
