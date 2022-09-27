@@ -48,6 +48,11 @@ Algorithm extracts the site id and grabs 4 static metadata coefficients from ref
 	
 evap is calculated as:
 	(ER - max(P,S)) * (F*SA) / 12
+	
+Each metadata coefficient has an effective start date/time, to avoid computing evap before the reservoir existed
+The start date/times should be the same on each coefficient
+The reservoir's start year will be calculated as the maximum year from all the coefficients (should be the same)
+No evap will be written before the start year
 
  */
 //AW:JAVADOC_END
@@ -72,7 +77,8 @@ public class CULMinorReservoirEvap
     double salvage;
     double maxSurfaceArea;
     double fullnessFactor;
-    double evapRate;    
+    double evapRate;
+    int resStartYr = 1900;
     
 //AW:LOCALVARS_END
 
@@ -149,6 +155,10 @@ public class CULMinorReservoirEvap
 	       {
 	    	   warning(comp.getName() + " - " + " Problem with metadata for site " + getSiteName("ResPrecip","hbd"));
 	    	   return;
+	       }else if (_timeSliceBaseTime.getYear() + 1900 < resStartYr)
+	       {
+	    	   warning(comp.getName() + " - " + " Skipping timestep before reservoir start year for site " + getSiteName("ResPrecip","hbd"));
+	    	   return;
 	       }
 	       
 	       // evap calculation
@@ -175,7 +185,7 @@ public class CULMinorReservoirEvap
 	 */
 	private double getAttrValue(String attrName)
 	{
-		query = "SELECT rsc.coef FROM\r\n"
+		query = "SELECT rsc.coef, EXTRACT(year FROM rsc.effective_start_date_time) yr FROM\r\n"
 				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
 				+ "ON rsc.attr_id = a.attr_id\r\n"
 				+ "WHERE \r\n"
@@ -190,6 +200,9 @@ public class CULMinorReservoirEvap
         }
         else
         {
+        	// each coefficient for the minor reservoir has an effective start date time (they should all be the same)
+        	// update the reservoir's start year to be the maximum start year from all the coeffs
+        	resStartYr = Math.max(resStartYr,Integer.parseInt(dbobj.get("yr").toString()));
         	return Double.parseDouble(dbobj.get("coef").toString());
         }
 	}
