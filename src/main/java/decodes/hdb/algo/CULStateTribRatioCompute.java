@@ -1,6 +1,5 @@
 package decodes.hdb.algo;
 
-import decodes.db.Constants;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
@@ -18,7 +17,6 @@ import opendcs.dai.TimeSeriesDAI;
 
 import java.sql.Connection;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import static decodes.tsdb.VarFlags.TO_WRITE;
 import static java.lang.Math.abs;
@@ -74,12 +72,12 @@ import static java.lang.Math.abs;
 
  */
 //AW:JAVADOC_END
-public class CULStateTribLivestockRatioCompute
+public class CULStateTribRatioCompute
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double livestock;	//AW:TYPECODE=i
-    String[] _inputNames = { "livestock" };
+    public double input;	//AW:TYPECODE=i
+    String[] _inputNames = { "input" };
 //AW:INPUTS_END
 
     //AW:LOCALVARS
@@ -193,22 +191,22 @@ public class CULStateTribLivestockRatioCompute
         // For Aggregating algorithms, this is done after each aggregate
         // period.
         // calculate number of days in the month in case the numbers are for month derivations
-        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("livestock"));
+        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("input"));
         do_setoutput = true;
-        ParmRef liveRef = getParmRef("livestock");
+        ParmRef inputRef = getParmRef("input");
 
         // get the input and output parameters and see if its model data
-        if (liveRef == null) {
-            warning("Unknown variable 'livestock'");
+        if (inputRef == null) {
+            warning("Unknown variable 'input'");
             return;
         }
 
-        DbKey liveSDI = liveRef.timeSeries.getSDI();
+        DbKey liveSDI = inputRef.timeSeries.getSDI();
 
-        String input_interval1 = liveRef.compParm.getInterval();
+        String input_interval1 = inputRef.compParm.getInterval();
         if (input_interval1 == null || !input_interval1.equals("year"))
             warning("Wrong input1 interval for " + comp.getAlgorithmName());
-        String table_selector1 = liveRef.compParm.getTableSelector();
+        String table_selector1 = inputRef.compParm.getTableSelector();
         if (table_selector1 == null || !table_selector1.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
@@ -324,6 +322,7 @@ public class CULStateTribLivestockRatioCompute
             }
         } catch (Exception e) {
             warning(e.toString());
+            outputSeries.clear();
             return;
         }
         if (abs(total - 1.0D) > 1e-7) {
