@@ -13,8 +13,11 @@ import ilex.var.NamedVariable;
 import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import static java.time.LocalDate.now;
 
 //AW:IMPORTS
 // Place an import statements you need here.
@@ -158,6 +161,7 @@ public class CULEstimateFromSource
         do_setoutput = true;
         flags = "";
         conn = null;
+
 //AW:BEFORE_TIMESLICES_END
     }
 
@@ -212,13 +216,12 @@ public class CULEstimateFromSource
 
         TimeZone tz = TimeZone.getTimeZone("MST");
         GregorianCalendar cal = new GregorianCalendar(tz);
-        GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
-        cal1.setTime(_timeSliceBaseTime);
-        cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
         SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
-        sdf.setTimeZone(
-                TimeZone.getTimeZone(DecodesSettings.instance().aggregateTimeZone));
-
+        sdf.setTimeZone(TimeZone.getTimeZone(DecodesSettings.instance().aggregateTimeZone));
+        if (comp.getValidEnd() == null)
+        {
+            comp.setValidEnd(new Date()); //now
+        }
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
 

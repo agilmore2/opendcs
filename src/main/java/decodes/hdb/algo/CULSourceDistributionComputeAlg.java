@@ -110,7 +110,7 @@ public class CULSourceDistributionComputeAlg
     public String flags;
 
     String[] _propertyNames = { "ignore_partials", "estimation_process",
-            "validation_flag", "rounding", "coeff_year" };
+                                "validation_flag", "rounding", "coeff_year" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
@@ -204,16 +204,9 @@ public class CULSourceDistributionComputeAlg
         if (table_selector == null || !table_selector.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-        parmRef = getParmRef("output1");
+        parmRef = getParmRef("output");
         if (parmRef == null)
             warning("Unknown output variable 'OUTPUT'");
-
-		// TODO: is this section necessary?
-        TimeZone tz = TimeZone.getTimeZone("MST");
-        GregorianCalendar cal = new GregorianCalendar(tz);
-        GregorianCalendar cal1 = new GregorianCalendar(); //uses correct timezone from OpenDCS properties
-        cal1.setTime(_timeSliceBaseTime);
-        cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
@@ -223,7 +216,6 @@ public class CULSourceDistributionComputeAlg
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         DBAccess db = new DBAccess(conn);
-        RBASEUtils rbu = new RBASEUtils(dbobj,conn);
 
         String require_12_clause = "";
         if (ignore_partials)
@@ -248,7 +240,7 @@ public class CULSourceDistributionComputeAlg
                 " app.loading_application_name != '" + estimation_process + "' AND" +
                 " app.loading_application_name != 'CU_FillMissing'" +
                 " )," +
-                " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr HAVING sum(VALUE) > 0)" +
+                " yrs AS (SELECT yr, sum(VALUE) tot, count(VALUE) mons FROM t GROUP BY yr HAVING abs(sum(VALUE)) > 0)" +
                 select_clause + // SELECT mon, avg(VALUE/tot) coef FROM t, yrs -- or rounding version
                 " WHERE t.yr = yrs.yr AND" +
                 require_12_clause + // yrs.mons = 12 --adds requirement that only whole years are used to compute coefficients
@@ -278,6 +270,8 @@ public class CULSourceDistributionComputeAlg
         }
 
 //              otherwise we have some records so continue...
+        TimeZone tz = TimeZone.getTimeZone("MST");
+        GregorianCalendar cal = new GregorianCalendar(tz);
 
         // set the output if all is successful and set the flags appropriately
         if (do_setoutput) {

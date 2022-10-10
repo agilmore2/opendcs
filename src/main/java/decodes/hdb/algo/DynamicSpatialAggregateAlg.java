@@ -175,8 +175,6 @@ public class DynamicSpatialAggregateAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
-
-
         dbobj.put("ALG_VERSION",alg_ver);
         conn = tsdb.getConnection();
         db = new DBAccess(conn);
@@ -224,6 +222,12 @@ public class DynamicSpatialAggregateAlg
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
             warning(status);
+            return;
+        }
+
+        if (Integer.parseInt(dbobj.get("rowCount").toString()) == 0)
+        {
+            warning(comp.getName() + "-" + alg_ver + " No timeseries returned for " + getSiteName("input"));
             return;
         }
 
@@ -283,6 +287,7 @@ public class DynamicSpatialAggregateAlg
         if (!foundPeers)
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + output_site_method);
+            outputSeries = null;
             return;
         }
 
@@ -311,6 +316,8 @@ public class DynamicSpatialAggregateAlg
 //AW:TIMESLICE
         debug3(comp.getName() + "-" + alg_ver + " BEGINNING OF doAWTimeSlice for period: " +
                 _timeSliceBaseTime + " SDI: " + getSDI("input"));
+
+        if (outputSeries == null) return;
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
         sdf.setTimeZone(
@@ -365,6 +372,7 @@ public class DynamicSpatialAggregateAlg
         // For TimeSlice algorithms this is done once after all slices.
         // For Aggregating algorithms, this is done after each aggregate
         // period.
+        if (outputSeries == null) return;
 
         // set the outputs. If some timesteps failed, they will be marked for delete and be deleted here.
         try {
@@ -374,6 +382,7 @@ public class DynamicSpatialAggregateAlg
         } catch (DbIoException | BadTimeSeriesException e) {
             warning("Exception during saving output to database:" + e.toString());
         }
+        outputSeries = null; //clean up
 //AW:AFTER_TIMESLICES_END
     }
 
