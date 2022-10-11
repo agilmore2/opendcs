@@ -64,7 +64,7 @@ import static java.lang.Math.abs;
 
  */
 //AW:JAVADOC_END
-public class CULLivestockRatioFill
+public class CULRatioFill
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS

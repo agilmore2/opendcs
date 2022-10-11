@@ -54,7 +54,7 @@ import static java.lang.Math.abs;
  EXTRACT(YEAR FROM vals.start_date_time) between 1986 and 1995
  ), t as
  (select yr, sum(s.value) total from s group by yr)
- SELECT avg(s.value/t.total) ratio
+ SELECT avg(CASE WHEN t.total = 0 THEN 0 ELSE s.value/t.total END) AS ratio -- if the basin sum is 0, compute a 0 ratio for all components
  , outts.ts_id outid
  from s, t, hdb_site_datatype outsd, hdb_site_datatype ratiosd, cp_ts_id outts
  where
@@ -201,7 +201,7 @@ public class CULStateTribRatioCompute
             return;
         }
 
-        DbKey liveSDI = inputRef.timeSeries.getSDI();
+        DbKey inputSDI = inputRef.timeSeries.getSDI();
 
         String input_interval1 = inputRef.compParm.getInterval();
         if (input_interval1 == null || !input_interval1.equals("year"))
@@ -231,11 +231,11 @@ public class CULStateTribRatioCompute
         DBAccess db = new DBAccess(conn);
         TimeSeriesDAI dao = tsdb.makeTimeSeriesDAO();
 
-        String select_clause = "SELECT avg(s.value/t.total) ratio ";
+        String select_clause = "SELECT avg(CASE WHEN t.total = 0 THEN 0 ELSE s.value/t.total END) AS ratio ";
 
         if (rounding)
         {
-            select_clause = "SELECT round(avg(s.value/t.total),11) ratio "; // 7 used by other HDB aggregates, these values get small though!
+            select_clause = "SELECT round(avg(CASE WHEN t.total = 0 THEN 0 ELSE s.value/t.total END),11) AS ratio "; // 7 used by other HDB aggregates, these values get small though!
         }
 
         query = " with s as " +
@@ -247,7 +247,7 @@ public class CULStateTribRatioCompute
                 "trigsd.site_id = trig.site_id and peer.basin_id = trig.basin_id and " +
                 "trig.objecttype_id = peer.objecttype_id and " +
                 "trigsd.datatype_id = peersd.datatype_id and " +
-                "trigsd.site_datatype_id = " + liveSDI + " and " +
+                "trigsd.site_datatype_id = " + inputSDI + " and " +
                 "EXTRACT(YEAR FROM vals.start_date_time) between " + src_startyr + " AND " + src_endyr + " " +
                 "), t as " +
                 "(select yr, sum(s.value) total from s group by yr) " +
