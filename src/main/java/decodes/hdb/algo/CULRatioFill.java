@@ -30,7 +30,7 @@ import static java.lang.Math.abs;
  Only applies to R_YEAR
 
  total: input value at state/trib level
- ratio: reference SDI used to find ratios stored at basin level
+ ratio: reference datatype used to find ratios timeseries stored on basin constituent level
 
  ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
  ObjectType: detemines objecttype of output timeseries
@@ -81,7 +81,7 @@ public class CULRatioFill
     boolean do_setoutput = true;
     Connection conn = null;
     TimeSeriesDAI dao;
-    HashMap<String, CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
+    HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
     HashMap<String, Double> ratioMap = new HashMap<>();
 
     PropertySpec[] specs =
@@ -157,12 +157,12 @@ public class CULRatioFill
             flag |= HdbFlags.hdbValidation2flag(validation_flag.charAt(1));
 
         // get the input and output parameters and see if its model data
-        ParmRef liveRef = getParmRef("total");
-        if (liveRef == null) {
+        ParmRef totalRef = getParmRef("total");
+        if (totalRef == null) {
             warning("Unknown variable 'total'");
             return;
         }
-        DbKey liveSDI = liveRef.timeSeries.getSDI();
+        DbKey totalSDI = totalRef.timeSeries.getSDI();
 
         ParmRef ratioRef = getParmRef("ratio");
         if (ratioRef == null) {
@@ -171,10 +171,10 @@ public class CULRatioFill
         }
         DbKey ratioSDI = ratioRef.timeSeries.getSDI();
 
-        String input_interval1 = liveRef.compParm.getInterval();
+        String input_interval1 = totalRef.compParm.getInterval();
         if (input_interval1 == null || !input_interval1.equals("year"))
             warning("Wrong total interval for " + comp.getAlgorithmName());
-        String table_selector1 = liveRef.compParm.getTableSelector();
+        String table_selector1 = totalRef.compParm.getTableSelector();
         if (table_selector1 == null || !table_selector1.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
@@ -192,7 +192,7 @@ public class CULRatioFill
                 "hdb_site_datatype inratsd, hdb_site_datatype ratiosd, " +
                 "r_year r " +
                 "where " +
-                "insd.site_datatype_id = " + liveSDI + " and " +
+                "insd.site_datatype_id = " + totalSDI + " and " +
                 "insd.site_id = out.basin_id and " +
                 "insd.datatype_id = outsd.datatype_id and " +
                 "outsd.site_id = out.site_id and " +
@@ -207,13 +207,13 @@ public class CULRatioFill
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
-        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
+        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
         if (status.startsWith("ERROR") || count < 1 || !findOutputSeries(dbobj))
         {
-            warning(comp.getName()+"-"+alg_ver+" Aborted: see following error message");
+            warning(comp.getName()+"-"+alg_ver+" Aborted or no output timeseries for basin " + getSiteName("total") + ": see following error message");
             warning(status);
             return;
         }
@@ -224,8 +224,8 @@ public class CULRatioFill
         Object t = dbobj.get("ts");
         if (count == 1)
         {
-            ratios = new ArrayList<Object>();
-            tsids = new ArrayList<Object>();
+            ratios = new ArrayList<>();
+            tsids = new ArrayList<>();
             ratios.add(r);
             tsids.add(t);
         }
@@ -244,7 +244,6 @@ public class CULRatioFill
             }
         } catch (Exception e) {
             warning(e.toString());
-            return;
         }
 
         //AW:BEFORE_TIMESLICES_END
@@ -327,7 +326,7 @@ public class CULRatioFill
         }
         else if (count == 1)
         {
-            tsids = new ArrayList<Object>();
+            tsids = new ArrayList<>();
             tsids.add(dbobj.get("ts"));
         }
         else
