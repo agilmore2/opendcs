@@ -368,7 +368,7 @@ public class CULStateTribRatioCompute
 
         if (count == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
+            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj.toString());
             return false;
         }
         else if (count == 1)

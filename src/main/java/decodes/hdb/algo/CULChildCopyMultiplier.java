@@ -10,6 +10,7 @@ import decodes.tsdb.ParmRef;
 import decodes.tsdb.TimeSeriesIdentifier;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.PropertySpec;
+import ilex.var.NamedVariable;
 import ilex.var.TimedVariable;
 import opendcs.dai.TimeSeriesDAI;
 
@@ -17,7 +18,6 @@ import java.sql.Connection;
 import java.util.*;
 
 import static decodes.tsdb.VarFlags.TO_WRITE;
-import static java.lang.Math.abs;
 
 //AW:IMPORTS
 // Place an import statements you need here.
@@ -26,51 +26,48 @@ import static java.lang.Math.abs;
 //AW:JAVADOC
 
 /**
- This algorithm computes County HUC CU from the basin total multipled by a computed ratio
- Only applies to R_YEAR
+ This algorithm copies data to a child site with an optional multiplier
 
- total: input value at state/trib level
- ratio: reference datatype used to find ratios timeseries stored on basin constituent level
+ input: value at parent site, multiplied by optional scaler to produce output value
+ datatype: SDI at parent site determines datatype used to find output TS at child site with same datatype
 
  ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
- ObjectType: detemines objecttype of output timeseries
 
  Algorithm is as follows:
- query output timeseries determined by basin_id and objecttype
- query ratios for every output timeseries from 1985 by convention, datatype determined by input ratio parmref
+ query output timeseries determined by their parent site matching input site and specified output datatype
 
- working SQL query to compute data:
- select outts.ts_id ts, r.value ratio, out.site_id site from 
+ working SQL query to find output timeseries:
+ select outts.ts_id ts, r.value*multiplier output from
  hdb_site_datatype insd, hdb_site out,
  hdb_site_datatype outsd, cp_ts_id outts,
- hdb_site_datatype inratsd, hdb_site_datatype ratiosd,
- r_year r
+ hdb_site_datatype datasd,
+ r_month r
  where
  insd.site_datatype_id = 25058 and
- insd.site_id = out.basin_id and  
- insd.datatype_id = outsd.datatype_id and  
+ insd.site_id = out.parent_site_id and
  outsd.site_id = out.site_id and
- outsd.site_datatype_id = outts.site_datatype_id and  
- outts.interval = 'year' AND  
+ datasd.site_datatype_id = 34954 AND
+ datasd.datatype_id = outsd.datatype_id and
+ outsd.site_datatype_id = outts.site_datatype_id and
+ outts.interval = 'month' AND
  outts.table_selector = 'R_' AND
- inratsd.site_datatype_id = 34954 AND
- inratsd.datatype_id = ratiosd.datatype_id and
- ratiosd.site_id = out.site_id and
- ratiosd.site_datatype_id = r.site_datatype_id AND
- extract(year from r.start_date_time) = 1985
+ outsd.site_datatype_id = r.site_datatype_id
 
- querying r_year for actual values to ensure validation has occurred.
+ input value will be produced by CP and multiplied in doAWTimeSlice and stored in outputTimeseries
 
+ afterTimeslice will write data to database
 
  */
 //AW:JAVADOC_END
-public class CULRatioFill
+public class CULChildCopyMultiplier
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
+    public static final String INPUT = "input";
+    public static final String DATATYPE = "datatype";
     //AW:INPUTS
-    public double total;	//AW:TYPECODE=i
-    public double ratio;	//AW:TYPECODE=i
-    String[] _inputNames = { "total", "ratio" };
+    public double input;	//AW:TYPECODE=i
+    public double datatype; //AW:TYPECODE=i
+    String[] _inputNames = { INPUT, DATATYPE };
 //AW:INPUTS_END
 
     //AW:LOCALVARS
@@ -82,18 +79,17 @@ public class CULRatioFill
     Connection conn = null;
     TimeSeriesDAI dao;
     HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
-    HashMap<String, Double> ratioMap = new HashMap<>();
 
     PropertySpec[] specs =
             {
+                    new PropertySpec("multiplier", PropertySpec.NUMBER,
+                            "(default=-1.0) Input is multiplied by this value."),
                     new PropertySpec("rounding", PropertySpec.BOOLEAN,
                             "(default=false) If true, then rounding is done on the output value."),
                     new PropertySpec("validation_flag", PropertySpec.STRING,
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("flags", PropertySpec.STRING,
-                            "(empty) Always set these dataflags in the output."),
-                    new PropertySpec("coeff_year", PropertySpec.INT,
-                            "(1985) What year to write coefficients into"),
+                            "(empty) Always set these dataflags in the output.")
             };
 
 
@@ -106,12 +102,12 @@ public class CULRatioFill
 //AW:OUTPUTS_END
 
     //AW:PROPERTIES
+    public double multiplier = -1D;
     public boolean rounding = false;
     public String validation_flag = "";
-    public long coeff_year = 1985;
     public String flags = "";
 
-    String[] _propertyNames = { "validation_flag", "rounding", "coeff_year", "flags" };
+    String[] _propertyNames = { "multiplier", "rounding", "validation_flag", "flags" };
 
     //AW:PROPERTIES_END
 
@@ -157,28 +153,14 @@ public class CULRatioFill
             flag |= HdbFlags.hdbValidation2flag(validation_flag.charAt(1));
 
         // get the input and output parameters and see if its model data
-        ParmRef totalRef = getParmRef("total");
-        if (totalRef == null) {
-            warning("Unknown variable 'total'");
+        ParmRef inRef = getParmRef(INPUT);
+        if (inRef == null) {
+            warning("Unknown variable " + INPUT);
             return;
         }
-        DbKey totalSDI = totalRef.timeSeries.getSDI();
+        DbKey inSDI = inRef.timeSeries.getSDI();
 
-        ParmRef ratioRef = getParmRef("ratio");
-        if (ratioRef == null) {
-            warning("Unknown variable 'ratio'");
-            return;
-        }
-        DbKey ratioSDI = ratioRef.timeSeries.getSDI();
-
-        String input_interval1 = totalRef.compParm.getInterval();
-        if (input_interval1 == null || !input_interval1.equals("year"))
-            warning("Wrong total interval for " + comp.getAlgorithmName());
-        String table_selector1 = totalRef.compParm.getTableSelector();
-        if (table_selector1 == null || !table_selector1.equals("R_"))
-            warning("Invalid table selector for algorithm, only R_ supported");
-
-        // get the connection  and a few other classes so we can do some sql
+        // get the connection and a few other classes so we can do some sql
         conn = tsdb.getConnection();
 
         String status;
@@ -186,24 +168,19 @@ public class CULRatioFill
         dbobj.put("ALG_VERSION",alg_ver);
         DBAccess db = new DBAccess(conn);
 
-        query = "select outts.ts_id ts, r.value ratio from " +
-                "hdb_site_datatype insd, hdb_site out, " +
-                "hdb_site_datatype outsd, cp_ts_id outts, " +
-                "hdb_site_datatype inratsd, hdb_site_datatype ratiosd, " +
-                "r_year r " +
-                "where " +
-                "insd.site_datatype_id = " + totalSDI + " and " +
-                "insd.site_id = out.basin_id and " +
-                "insd.datatype_id = outsd.datatype_id and " +
-                "outsd.site_id = out.site_id and " +
-                "outsd.site_datatype_id = outts.site_datatype_id and " +
-                "outts.interval = '" + getInterval("ratio") + "' and " +
-                "outts.table_selector = '" + getTableSelector("ratio") + "' and " +
-                "inratsd.site_datatype_id = " + ratioSDI + " AND " +
-                "inratsd.datatype_id = ratiosd.datatype_id and " +
-                "ratiosd.site_id = out.site_id and " +
-                "ratiosd.site_datatype_id = r.site_datatype_id AND " +
-                "extract(year from r.start_date_time) = " + coeff_year;
+        query = " select outts.ts_id ts from " +
+                " hdb_site_datatype insd, hdb_site out, " +
+                " hdb_site_datatype outsd, cp_ts_id outts, " +
+                " hdb_site_datatype datasd " +
+                " where " +
+                " insd.site_datatype_id = " + inSDI + " and " +
+                " insd.site_id = out.parent_site_id and " +
+                " outsd.site_id = out.site_id and " +
+                " datasd.site_datatype_id = " + getSDI(DATATYPE) + " AND " +
+                " datasd.datatype_id = outsd.datatype_id and " +
+                " outsd.site_datatype_id = outts.site_datatype_id and " +
+                " outts.interval = '" + getInterval(DATATYPE) + "' AND " +
+                " outts.table_selector = '" + getTableSelector(DATATYPE) + "'";
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
@@ -211,39 +188,10 @@ public class CULRatioFill
         // now see if the aggregate query worked if not abort!!!
 
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        if (status.startsWith("ERROR") || count < 1 || !findOutputSeries(dbobj))
+        if (status.startsWith("ERROR") || count != 1 || !findOutputSeries(dbobj))
         {
-            warning(comp.getName()+"-"+alg_ver+" Aborted or no output timeseries for basin " + getSiteName("total") + ": see following error message");
+            warning(comp.getName()+"-"+alg_ver+" Aborted or incorrect output timeseries for site " + getSiteName(DATATYPE) + ": see following error message");
             warning(status);
-            return;
-        }
-
-        ArrayList<Object> ratios;
-        ArrayList<Object> tsids;
-        Object r = dbobj.get("ratio");
-        Object t = dbobj.get("ts");
-        if (count == 1)
-        {
-            ratios = new ArrayList<>();
-            tsids = new ArrayList<>();
-            ratios.add(r);
-            tsids.add(t);
-        }
-        else
-        {
-            ratios = (ArrayList<Object>)r;
-            tsids = (ArrayList<Object>)t;
-        }
-
-        Iterator<Object> itR = ratios.iterator();
-        Iterator<Object> itT = tsids.iterator();
-        try {
-            while(itR.hasNext() && itT.hasNext()) {
-                String id = itT.next().toString();
-                ratioMap.putIfAbsent(id, Double.valueOf(itR.next().toString()));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
         }
 
         //AW:BEFORE_TIMESLICES_END
@@ -269,11 +217,10 @@ public class CULRatioFill
         cal1.setTime(_timeSliceBaseTime);
         cal.set(cal1.get(Calendar.YEAR),cal1.get(Calendar.MONTH),cal1.get(Calendar.DAY_OF_MONTH),0,0);
 
-        for (Map.Entry<String, Double> entry : ratioMap.entrySet()) {
-            String id = entry.getKey();
-            Double rat = entry.getValue();
-            // total is value suppled by CP for this state/trib
-            outputSeries.get(id).addSample(new TimedVariable(cal.getTime(), total * rat, flag));
+        // output is value supplied by CP times multiplier, there is only one timeseries
+        if (outputSeries.size() == 1)
+        {
+            outputSeries.entrySet().stream().findFirst().get().getValue().addSample(new TimedVariable(cal.getTime(), input * multiplier, flag));
         }
 //AW:TIMESLICE_END
     }
@@ -333,6 +280,7 @@ public class CULRatioFill
         {
             tsids = (ArrayList<Object>) dbobj.get("ts");
         }
+
 
         Iterator<Object> itId = tsids.iterator();
         try {

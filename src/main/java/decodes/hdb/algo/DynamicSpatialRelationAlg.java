@@ -242,7 +242,7 @@ public class DynamicSpatialRelationAlg
 
         if (count == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " Warning: zero output TS_IDs");
+            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj.toString());
             return true; // not an error
         }
         else if (count == 1)
