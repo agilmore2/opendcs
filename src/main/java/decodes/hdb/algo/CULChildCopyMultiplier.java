@@ -237,7 +237,7 @@ public class CULChildCopyMultiplier
         // For Aggregating algorithms, this is done after each aggregate
         // period.
         // calculate number of days in the month in case the numbers are for month derivations
-        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("total"));
+        debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI(INPUT));
 
         for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
             String k = entry.getKey();
