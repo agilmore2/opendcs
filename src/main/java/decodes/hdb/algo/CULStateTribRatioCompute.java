@@ -87,7 +87,7 @@ public class CULStateTribRatioCompute
     boolean do_setoutput = true;
     Connection conn = null;
     TimeSeriesDAI dao;
-    HashMap<String, CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
+    HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
 
     PropertySpec[] specs =
             {
@@ -267,7 +267,7 @@ public class CULStateTribRatioCompute
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
-        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
+        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
@@ -284,8 +284,8 @@ public class CULStateTribRatioCompute
         Object t = dbobj.get("ts");
         if (count == 1)
         {
-            ratios = new ArrayList<Object>();
-            tsids = new ArrayList<Object>();
+            ratios = new ArrayList<>();
+            tsids = new ArrayList<>();
             ratios.add(r);
             tsids.add(t);
         }
@@ -329,12 +329,6 @@ public class CULStateTribRatioCompute
             warning("Total basin ratios did not sum to 1.0! Ids: " + Arrays.toString(tsids.toArray()));
         }
 
-        //waiting on release of overwrite flag upstream, may want this to trigger recomputation of disagg?
-        //flag |= HdbFlags.HDBF_OVERWRITE_FLAG);
-        TimedVariable tv = new TimedVariable(cal.getTime(), total, flag);
-        ratioRef.timeSeries.addSample(tv);
-        outputSeries.put(ratioRef.tsid.toString(),ratioRef.timeSeries);
-
         for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
             String k = entry.getKey();
             CTimeSeries v = entry.getValue();
@@ -368,12 +362,12 @@ public class CULStateTribRatioCompute
 
         if (count == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj.toString());
+            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj);
             return false;
         }
         else if (count == 1)
         {
-            tsids = new ArrayList<Object>();
+            tsids = new ArrayList<>();
             tsids.add(dbobj.get("ts"));
         }
         else
