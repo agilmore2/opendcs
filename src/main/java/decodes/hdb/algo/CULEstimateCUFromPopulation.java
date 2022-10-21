@@ -83,7 +83,8 @@ public class CULEstimateCUFromPopulation
     DataObject dbobj = new DataObject();
 
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = new HashMap<String,CTimeSeries>();
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<>();
+    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 
     PropertySpec[] specs =
             {
@@ -107,7 +108,6 @@ public class CULEstimateCUFromPopulation
 
     String[] _propertyNames = { "validation_flag", "rounding" };
 //AW:PROPERTIES_END
-    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 
     // Allow javac to generate a no-args constructor.
 
@@ -143,7 +143,7 @@ public class CULEstimateCUFromPopulation
         dbobj.put("ALG_VERSION",alg_ver);
         debug3("beforeTimeSlices");
 
-        TreeSet<Date> newDates = new TreeSet<Date>();
+        TreeSet<Date> newDates = new TreeSet<>();
 
         ParmRef epref = getParmRef(EST_POP);
         if (epref != null)
@@ -227,7 +227,7 @@ public class CULEstimateCUFromPopulation
      */
     private TreeSet<Date> estimateTriggeredDates(ParmRef epref) {
         int n = epref.timeSeries.size(); //vars is private, can't use an iterator
-        TreeSet<Date> newDates = new TreeSet<Date>();
+        TreeSet<Date> newDates = new TreeSet<>();
         for(int i=0; i<n; i++)
         {
             TimedVariable tv = epref.timeSeries.sampleAt(i);
@@ -364,8 +364,8 @@ public class CULEstimateCUFromPopulation
             Object v = dbobj.get(CUR_MI_CU);
             if (count == 1)
             {
-                outputs = new ArrayList<Object>();
-                values = new ArrayList<Object>();
+                outputs = new ArrayList<>();
+                values = new ArrayList<>();
                 outputs.add(o);
                 values.add(v);
             }
@@ -421,7 +421,7 @@ public class CULEstimateCUFromPopulation
         }
         else if (count == 1)
         {
-            tsids = new ArrayList<Object>();
+            tsids = new ArrayList<>();
             tsids.add(dbobj.get("ts"));
         }
         else
