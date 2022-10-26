@@ -3,21 +3,20 @@ package decodes.hdb.algo;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
 import decodes.hdb.dbutils.RBASEUtils;
-import decodes.tsdb.DbCompException;
-import decodes.tsdb.ParmRef;
+import decodes.tsdb.*;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
 import decodes.util.PropertySpec;
 import ilex.var.NamedVariable;
+import ilex.var.TimedVariable;
+import opendcs.dai.TimeSeriesDAI;
 
 import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Pattern;
 
-import static java.time.LocalDate.now;
 
 //AW:IMPORTS
 // Place an import statements you need here.
@@ -220,7 +219,7 @@ public class CULEstimateFromSource
         sdf.setTimeZone(TimeZone.getTimeZone(DecodesSettings.instance().aggregateTimeZone));
         if (comp.getValidEnd() == null)
         {
-            comp.setValidEnd(new Date()); //now
+            comp.setValidEnd(new Date()); //now - causes SQL Exception when dates between returns a future month
         }
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
@@ -255,7 +254,7 @@ public class CULEstimateFromSource
                 " ) " +
                 " ), " +
                 " mons as ( " +
-                " select date_time, d.value from table(dates_between(TO_DATE('" + sdf.format(comp.getValidStart()) + "','DD-MON-YYYY'),TO_DATE('" + sdf.format(comp.getValidEnd()) + "','DD-MON-YYYY'),'month')), d " +
+                " select date_time, d.value from table(dates_between(TO_DATE('" + sdf.format(comp.getValidStart()) + "','DD-MON-YYYY'),trunc(TO_DATE('" + sdf.format(comp.getValidEnd()) + "','DD-MON-YYYY'),'month),'month')), d " +
                 " where " +
                 " yr(+)  = extract(year from date_time) and " +
                 " mon(+) = extract(month from date_time) " +
@@ -271,7 +270,7 @@ public class CULEstimateFromSource
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
-        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
+        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
         if (status.startsWith("ERROR"))
@@ -290,6 +289,14 @@ public class CULEstimateFromSource
         ArrayList<Object> aves = (ArrayList<Object>) dbobj.get("aves");
 
 //              otherwise we have some records so continue...
+        ParmRef outRef = getParmRef("output");
+        debug3("FLAGS: " + flags);
+        if (flags != null)
+            setHdbDerivationFlag(output, flags);
+        //
+        /* added to allow users to automatically set the Validation column */
+        if (validation_flag.length() > 0)
+            setHdbValidationFlag(output, validation_flag.charAt(1));
 
         // set the output if all is successful and set the flags appropriately
         if (do_setoutput) {
@@ -306,24 +313,24 @@ public class CULEstimateFromSource
 				}
                 double ave = Double.parseDouble(it2.next().toString());
 
-
-                debug3("FLAGS: " + flags);
-                if (flags != null)
-                    setHdbDerivationFlag(output, flags);
-                //
-                /* added to allow users to automatically set the Validation column */
-                if (validation_flag.length() > 0)
-                    setHdbValidationFlag(output, validation_flag.charAt(1));
-
                 info("Setting output for " + debugSdf.format(cal.getTime()));
-                setOutput(output, ave, cal.getTime());
+                VarFlags.setToWrite(output);
+                output.setValue(ave);
+                outRef.timeSeries.addSample(new TimedVariable(output, cal.getTime()));
             }
         }
         // not handling deletions
         else
         {
         }
-
+        TimeSeriesDAI dao = tsdb.makeTimeSeriesDAO();
+        try {
+            dao.saveTimeSeries(outRef.timeSeries);
+        } catch (DbIoException | BadTimeSeriesException e) {
+            throw new DbCompException(e.toString());
+        }
+        dao.close();
+        outRef.timeSeries.deleteAll();
 //AW:AFTER_TIMESLICES_END
     }
 
