@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
   hdb_loading_application WHERE loading_application_name IN ('CU_Agg_Disagg')
   )
  )
- SELECT  avg(ratio) FROM t
+ SELECT  NVL(avg(ratio),0) FROM t -- calculate a ratio of 0 if one of the series doesn't exist
  ;
 
  querying r_year for actual values to ensure validation has occurred.
@@ -70,9 +70,9 @@ public class CULRatioComputeAlg
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double livestock;	//AW:TYPECODE=i
-    public double stockpond;	//AW:TYPECODE=i
-    String[] _inputNames = { "livestock", "stockpond" };
+    public double sector1;	//AW:TYPECODE=i
+    public double sector2;	//AW:TYPECODE=i
+    String[] _inputNames = { "sector1", "sector2" };
 //AW:INPUTS_END
 
     //AW:LOCALVARS
@@ -194,32 +194,32 @@ public class CULRatioComputeAlg
         // period.
         // calculate number of days in the month in case the numbers are for month derivations
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES: for period: " +
-                _aggregatePeriodBegin + " SDI: " + getSDI("livestock"));
+                _aggregatePeriodBegin + " SDI: " + getSDI("sector1"));
         do_setoutput = true;
-        ParmRef liveRef = getParmRef("livestock");
-        ParmRef stockRef = getParmRef("stockpond");
+        ParmRef sector1Ref = getParmRef("sector1");
+        ParmRef sector2Ref = getParmRef("sector2");
 
         // get the input and output parameters and see if its model data
-        if (liveRef == null) {
+        if (sector1Ref == null) {
             warning("Unknown variable 'INPUT1'");
             return;
         }
-        if (stockRef == null) {
+        if (sector2Ref == null) {
             warning("Unknown variable 'INPUT2'");
             return;
         }
 
-        String input_interval1 = liveRef.compParm.getInterval();
+        String input_interval1 = sector1Ref.compParm.getInterval();
         if (input_interval1 == null || !input_interval1.equals("year"))
             warning("Wrong input1 interval for " + comp.getAlgorithmName());
-        String table_selector1 = liveRef.compParm.getTableSelector();
+        String table_selector1 = sector1Ref.compParm.getTableSelector();
         if (table_selector1 == null || !table_selector1.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
-        String input_interval2 = stockRef.compParm.getInterval();
+        String input_interval2 = sector2Ref.compParm.getInterval();
         if (input_interval2 == null || !input_interval2.equals("year"))
             warning("Wrong input2 interval for " + comp.getAlgorithmName());
-        String table_selector2 = stockRef.compParm.getTableSelector();
+        String table_selector2 = sector2Ref.compParm.getTableSelector();
         if (table_selector2 == null || !table_selector2.equals("R_"))
             warning("Invalid table selector for algorithm, only R_ supported");
 
@@ -242,21 +242,21 @@ public class CULRatioComputeAlg
         conn = tsdb.getConnection();
         DBAccess db = new DBAccess(conn);
 
-        DbKey liveSDI = liveRef.timeSeries.getSDI();
-        DbKey stockSDI = stockRef.timeSeries.getSDI();
+        DbKey sector1SDI = sector1Ref.timeSeries.getSDI();
+        DbKey sector2SDI = sector2Ref.timeSeries.getSDI();
 
-        String select_clause = " SELECT avg(ratio) ratio FROM t";
+        String select_clause = " SELECT NVL(avg(ratio),0) ratio FROM t";
         if (rounding)
         {
-            select_clause = " SELECT round(avg(ratio),7) ratio FROM t"; // 7 used by other HDB aggregates
+            select_clause = " SELECT NVL(round(avg(ratio),7),0) ratio FROM t"; // 7 used by other HDB aggregates
         }
 
         query = " WITH t AS\n" +
                 " (SELECT extract(year from a.start_date_time) yr, A.VALUE/(A.VALUE+b.VALUE) ratio\n" +
                 " FROM\n" +
                 " r_year A, r_year b, r_base ab, r_base bb WHERE\n" +
-                " A.site_datatype_id = " + liveSDI + " AND -- pull from input1\n" +
-                " b.site_datatype_id = " + stockSDI + " AND -- pull from input2\n" +
+                " A.site_datatype_id = " + sector1SDI + " AND -- pull from input1\n" +
+                " b.site_datatype_id = " + sector2SDI + " AND -- pull from input2\n" +
                 " A.start_date_time = b.start_date_time AND\n" +
                 " A.start_date_time BETWEEN TO_DATE('" + src_startyr + "-01-01','yyyy-mm-dd') AND TO_DATE('" + src_endyr + "-01-01','yyyy-mm-dd') AND\n" +
                 " -- join with r_base for input1 to check loading app\n" +
