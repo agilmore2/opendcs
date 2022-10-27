@@ -21,12 +21,14 @@ import java.util.TimeZone;
 //AW:JAVADOC
 
 /**
-Computes livestock and stockpond CU by disaggregating a combined number by multiplying with a computed ratio
+Disaggregates data available for a combination of two sectors into the component sectors
+Relies on a ratio computed by a separate algorithm
+Example: used to compute livestock and stockpond CU by disaggregating the combined source data
 
 
  */
 //AW:JAVADOC_END
-public class CULLivestockStockpondRatioDisagg
+public class CULSectorRatioDisagg
 	extends decodes.tsdb.algo.AW_AlgorithmBase
 {
 //AW:INPUTS
@@ -53,9 +55,9 @@ public class CULLivestockStockpondRatioDisagg
 //AW:LOCALVARS_END
 
 //AW:OUTPUTS
-	public NamedVariable livestock = new NamedVariable("livestock", 0);
-	public NamedVariable stockpond = new NamedVariable("stockpond", 0);
-	String[] _outputNames = { "livestock", "stockpond" };
+	public NamedVariable sector1 = new NamedVariable("sector1", 0);
+	public NamedVariable sector2 = new NamedVariable("sector2", 0);
+	String[] _outputNames = { "sector1", "sector2" };
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
@@ -182,11 +184,11 @@ public class CULLivestockStockpondRatioDisagg
 
 		if (flags != null)
 		{
-			setHdbDerivationFlag(livestock, flags);
-			setHdbDerivationFlag(stockpond, flags);
+			setHdbDerivationFlag(sector1, flags);
+			setHdbDerivationFlag(sector2, flags);
 		}
 		if (validation_flag.length() > 0) {
-			setHdbValidationFlag(stockpond, validation_flag.charAt(1));
+			setHdbValidationFlag(sector2, validation_flag.charAt(1));
 		}
 
 		while(itYr.hasNext() && itAnnualSource.hasNext()) {
@@ -195,8 +197,8 @@ public class CULLivestockStockpondRatioDisagg
 			cal.set(yr, 0,1,0,0);
 
 			debug3("Setting output for " + debugSdf.format(cal.getTime()));
-        	setOutput(livestock, annualSourceVal * coeff, cal.getTime());
-        	setOutput(stockpond, annualSourceVal * (1 - coeff), cal.getTime());
+        	setOutput(sector1, annualSourceVal * coeff, cal.getTime());
+        	setOutput(sector2, annualSourceVal * (1 - coeff), cal.getTime());
         }
 //AW:AFTER_TIMESLICES_END
 	}
