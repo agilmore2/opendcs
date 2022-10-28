@@ -196,7 +196,7 @@ public class CULCopyAverageToTimeseries
         
         ArrayList<Object> monthlyAvgs = (ArrayList<Object>) dbobj.get("avg");
         
-        // Query to allv months to fill
+        // Query to find all months to fill
         query = "select date_time dt from table(dates_between(DATE '" + fillStartYr + "-01-01',trunc(sysdate, 'month'), 'month')) "
         	  + "ORDER BY dt";
         

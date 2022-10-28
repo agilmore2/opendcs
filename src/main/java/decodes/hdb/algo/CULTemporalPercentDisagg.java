@@ -154,9 +154,9 @@ public class CULTemporalPercentDisagg
 							t + " SDI: " + getSDI(OUTPUT) + " value: " + out);
 					setOutput(output, out, t);
 				}
-				catch(NoConversionException ignored) {// delete output, computation failed
-					debug3(comp.getAlgorithmName()+" Failed to find coefficient At: " +
-							_timeSliceBaseTime + " SDI: " + getSDI(OUTPUT) + " Deleting old value");
+				catch(NoConversionException e) {// delete output, computation failed
+					debug3(comp.getAlgorithmName()+" Failed to find coefficient exception:" + e + " At: " +
+							t + " SDI: " + getSDI(OUTPUT) + " Deleting old value");
 					deleteOutput(output, t);
 				}
 			}
