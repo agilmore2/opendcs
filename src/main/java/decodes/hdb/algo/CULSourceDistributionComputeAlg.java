@@ -3,12 +3,15 @@ package decodes.hdb.algo;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
 import decodes.hdb.dbutils.RBASEUtils;
+import decodes.tsdb.BadTimeSeriesException;
 import decodes.tsdb.DbCompException;
+import decodes.tsdb.DbIoException;
 import decodes.tsdb.ParmRef;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
 import decodes.util.PropertySpec;
 import ilex.var.NamedVariable;
+import opendcs.dai.TimeSeriesDAI;
 
 import java.sql.Connection;
 import java.text.SimpleDateFormat;
@@ -249,25 +252,16 @@ public class CULSourceDistributionComputeAlg
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
-        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
+        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 12)
         {
-            warning(comp.getAlgorithmName()+"-"+alg_ver+" Aborted: see following error message");
-            warning(status);
-            return;
+            throw new DbCompException(comp.getAlgorithmName()+"-"+alg_ver+" Aborted or not enough coefficients, query:  " + query +  " status: " + status);
         }
         // now retrieve records from coeff computation
         ArrayList<Object> mons  = (ArrayList<Object>) dbobj.get("mon");
         ArrayList<Object> coeffs = (ArrayList<Object>) dbobj.get("coef");
-
-        //  delete any existing resultant value if not enough values returned
-        if (mons.size() != 12)
-        {
-            debug3(comp.getAlgorithmName() + "-" + alg_ver + " Aborted: not enough month values " + _aggregatePeriodBegin + " SDI: " + getSDI("input"));
-            do_setoutput = false; // something went wrong, delete outputs
-        }
 
 //              otherwise we have some records so continue...
         TimeZone tz = TimeZone.getTimeZone("MST");
@@ -290,7 +284,7 @@ public class CULSourceDistributionComputeAlg
                 if (validation_flag.length() > 0)
                     setHdbValidationFlag(output, validation_flag.charAt(1));
 
-                info("Setting output for " + debugSdf.format(cal.getTime()));
+                debug3("Setting output for " + debugSdf.format(cal.getTime()) + " value: " + coeff);
                 setOutput(output, coeff, cal.getTime());
             }
         }
@@ -304,7 +298,15 @@ public class CULSourceDistributionComputeAlg
                 deleteOutput(output,cal.getTime());
             }
         }
+        ParmRef outRef = getParmRef("output");
 
+        TimeSeriesDAI dao = tsdb.makeTimeSeriesDAO();
+        try {
+            dao.saveTimeSeries(outRef.timeSeries); // write them now as this is not aggregating, and shouldn't write from afterTimeslice
+            outRef.timeSeries.deleteAll();
+        } catch (DbIoException | BadTimeSeriesException e) {
+            throw new DbCompException(e.toString());
+        }
 //AW:AFTER_TIMESLICES_END
     }
 

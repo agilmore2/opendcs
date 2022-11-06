@@ -48,7 +48,7 @@ public class CULStaticCoeffTemporalDisagg
 //AW:LOCALVARS
 
 	double[] coeffs;
-	private static final Pattern stringPattern = Pattern.compile("^[\\w\\h,]+$"); //only alphanumeric+_, and spaces allowed
+	private static final Pattern stringPattern = Pattern.compile("^[\\w\\h,()]+$"); //only alphanumeric+_, () and spaces allowed
 
 	PropertySpec[] specs =
         {
@@ -128,16 +128,16 @@ public class CULStaticCoeffTemporalDisagg
 		DBAccess db = new DBAccess(conn);
 
 		String query = "select coef.coef_idx idx, coef.coef coef from " +
-				"ref_site_coef coef, hdb_attr af, " +
+				"ref_site_coef coef, hdb_attr af " +
 				"where " +
 				"coef.site_id = " + basinId + " and " +
 				"coef.attr_id = af.attr_id and " +
-				"af.attr_name = '" + coefficientAttribute + "' and " +
+				"af.attr_name = '" + coefficientAttribute + "' " +
 				"order by idx";
 
 		status = db.performQuery(query, dbobj);
-		int count = Integer.parseInt(dbobj.get("rowCount").toString());
-		if(status.startsWith("ERROR") || count == 0)
+		int count;
+		if(status.startsWith("ERROR") || (count = Integer.parseInt(dbobj.get("rowCount").toString())) == 0) // avoid reading dbobj before error checking
 		{
 			throw new DbCompException(status + " Something wrong with coefficients! query: " + query + " dbobj: " + dbobj);
 		}

@@ -254,7 +254,7 @@ public class CULEstimateFromSource
                 " ) " +
                 " ), " +
                 " mons as ( " +
-                " select date_time, d.value from table(dates_between(TO_DATE('" + sdf.format(comp.getValidStart()) + "','DD-MON-YYYY'),trunc(TO_DATE('" + sdf.format(comp.getValidEnd()) + "','DD-MON-YYYY'),'month),'month')), d " +
+                " select date_time, d.value from table(dates_between(TO_DATE('" + sdf.format(comp.getValidStart()) + "','DD-MON-YYYY'),trunc(TO_DATE('" + sdf.format(comp.getValidEnd()) + "','DD-MON-YYYY'),'month'),'month')), d " +
                 " where " +
                 " yr(+)  = extract(year from date_time) and " +
                 " mon(+) = extract(month from date_time) " +
