@@ -444,7 +444,7 @@ public abstract class AW_AlgorithmBase
 				if (propVal.equalsIgnoreCase("Double.MAX_VALUE"))
 					field.setDouble(this, Double.MAX_VALUE);
 				else if (propVal.equalsIgnoreCase("Double.MIN_VALUE")
-					|| propVal.equalsIgnoreCase("Double.NEGATIVE_INIFINITY"))
+					|| propVal.equalsIgnoreCase("Double.NEGATIVE_INFINITY"))
 					field.setDouble(this, Double.NEGATIVE_INFINITY);
 				else
 					field.setDouble(this, Double.parseDouble(propVal));
