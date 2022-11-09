@@ -79,6 +79,7 @@ public class CULMinorReservoirEvap
     double fullnessFactor;
     double evapRate;
     int resStartYr = 1900;
+    int resEndYr;
     
 //AW:LOCALVARS_END
 
@@ -159,6 +160,10 @@ public class CULMinorReservoirEvap
 	       {
 	    	   warning(comp.getName() + " - " + " Skipping timestep before reservoir start year for site " + getSiteName("ResPrecip","hbd"));
 	    	   return;
+	       }else if (resEndYr != 0 && _timeSliceBaseTime.getYear() + 1900 > resEndYr)
+	       {
+	    	   warning(comp.getName() + " - " + " Skipping timestep after reservoir end year for site " + getSiteName("ResPrecip","hbd"));
+	    	   return;	    	   
 	       }
 	       
 	       // evap calculation
@@ -185,7 +190,7 @@ public class CULMinorReservoirEvap
 	 */
 	private double getAttrValue(String attrName)
 	{
-		query = "SELECT rsc.coef, EXTRACT(year FROM rsc.effective_start_date_time) yr FROM\r\n"
+		query = "SELECT rsc.coef, EXTRACT(year FROM rsc.effective_start_date_time) syr, NVL(EXTRACT(year FROM rsc.effective_end_date_time),0) eyr FROM\r\n"
 				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
 				+ "ON rsc.attr_id = a.attr_id\r\n"
 				+ "WHERE \r\n"
@@ -202,8 +207,13 @@ public class CULMinorReservoirEvap
         {
         	// each coefficient for the minor reservoir has an effective start date time (they should all be the same)
         	// update the reservoir's start year to be the maximum start year from all the coeffs
-        	resStartYr = Math.max(resStartYr,Integer.parseInt(dbobj.get("yr").toString()));
-        	return Double.parseDouble(dbobj.get("coef").toString());
+        	resStartYr = Math.max(resStartYr,Integer.parseInt(dbobj.get("syr").toString()));
+        	
+        	// some reservoirs will have effective end date times (they should all be the same, or null). Null will be represented by a 0
+        	// update the reservoir's end year to be the maximum end year from all the coeffs (0 if null)
+        	resEndYr = Math.max(resEndYr, Integer.parseInt(dbobj.get("eyr").toString()));
+        	
+        	return Double.parseDouble(dbobj.get("coef").toString());        	
         }
 	}
 	
