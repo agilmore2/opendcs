@@ -105,7 +105,7 @@ public class DynamicSpatialAggregateAlg
     String selectClause;
     Connection conn = null;
     DBAccess db = null;
-    DataObject dbobj = new DataObject();
+    DataObject dbobj;
     TimeSeriesDAI dao = null;
     CTimeSeries outputSeries = null;
 
@@ -175,6 +175,7 @@ public class DynamicSpatialAggregateAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
+        dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
 
 
