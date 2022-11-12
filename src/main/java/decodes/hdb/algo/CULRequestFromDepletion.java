@@ -218,4 +218,11 @@ public class CULRequestFromDepletion
 	{
 		return _propertyNames;
 	}
+
+	@Override
+	protected PropertySpec[] getAlgoPropertySpecs()
+	{
+		return specs;
+	}
+
 }

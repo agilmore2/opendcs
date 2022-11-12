@@ -7,7 +7,6 @@ import ilex.var.NamedVariable;
 import ilex.var.NoConversionException;
 import opendcs.dai.TimeSeriesDAI;
 
-import java.sql.Connection;
 import java.util.Date;
 
 //AW:IMPORTS
@@ -17,7 +16,8 @@ import java.util.Date;
 //AW:JAVADOC
 
 /**
- Computes fraction of total from total and queried component at same or shorter interval
+ Computes fraction of total from total and same SDI at interval of output
+ Output(t) = component(t)/total(t1 through t12) where output and total are parameters, and component timeseries is queried
 
  */
 //AW:JAVADOC_END

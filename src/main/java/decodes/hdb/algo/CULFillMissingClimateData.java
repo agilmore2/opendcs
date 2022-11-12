@@ -278,4 +278,11 @@ public class CULFillMissingClimateData
 	{
 		return _propertyNames;
 	}
+
+	@Override
+	protected PropertySpec[] getAlgoPropertySpecs()
+	{
+		return specs;
+	}
+
 }
