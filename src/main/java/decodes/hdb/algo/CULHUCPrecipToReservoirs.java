@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.TimeZone;
 
+import decodes.hdb.dbutils.HDBAlgoTSUtils;
 import ilex.var.NamedVariableList;
 import ilex.util.TextUtil;
 import ilex.var.NamedVariable;
@@ -65,7 +66,7 @@ public class CULHUCPrecipToReservoirs
 {
 //AW:INPUTS
 	public double HUCPrecip;	//AW:TYPECODE=i
-	String _inputNames[] = { "HUCPrecip" };
+	String[] _inputNames = { "HUCPrecip" };
 //AW:INPUTS_END
 
 //AW:LOCALVARS
@@ -78,12 +79,12 @@ public class CULHUCPrecipToReservoirs
     DBAccess db = null;
     DataObject dbobj = new DataObject();
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<>();
     
 //AW:LOCALVARS_END
 
 //AW:OUTPUTS
-	String _outputNames[] = {};
+	String[] _outputNames = {};
 //AW:OUTPUTS_END
 
 //AW:PROPERTIES
@@ -93,7 +94,7 @@ public class CULHUCPrecipToReservoirs
                         "('minor' or 'major') Specify the type of reservoir evap computation"),
         };
 	public String sector = "";
-	String _propertyNames[] = { "sector" };
+	String[] _propertyNames = { "sector" };
 //AW:PROPERTIES_END
 
 	// Allow javac to generate a no-args constructor.
@@ -127,79 +128,35 @@ public class CULHUCPrecipToReservoirs
         conn = tsdb.getConnection();
         db = new DBAccess(conn);
         dao = tsdb.makeTimeSeriesDAO();
+		outputSeries.clear();
         
         // Get output reservoir precip TSID's (all reservoirs within the triggering HUC)
         
-        query = "SELECT \r\n"
-        		+ "id.ts_id ts, outputs.site_id output_site \r\n"
-        		+ "FROM hdb_site sources,hdb_site_datatype sourcesd,\r\n"
-        		+ "hdb_site_datatype outputsdis,hdb_site outputs, cp_ts_id id \r\n"
-        		+ "WHERE \r\n"
-        		+ "sourcesd.site_datatype_id = " + getSDI("HUCPrecip") + " AND  \r\n"
-        		+ "sourcesd.site_id = sources.site_id AND\r\n"
-        		+ "outputsdis.site_id = outputs.site_id AND\r\n"
-        		+ "outputs.objecttype_id = \r\n"
-        		+ "(SELECT objecttype_id FROM hdb_objecttype WHERE objecttype_name = 'cul site - " + sector + " reservoir') AND\r\n"
-        		+ "outputs.hydrologic_unit = sources.site_name AND \r\n"
-        		+ "outputsdis.datatype_id = sourcesd.datatype_id AND\r\n"
-        		+ "id.site_datatype_id = outputsdis.site_datatype_id AND\r\n"
-        		+ "id.interval = '" + getInterval("HUCPrecip") + "' AND\r\n"
+        query = "SELECT   "
+        		+ "id.ts_id ts, outputs.site_id output_site   "
+        		+ "FROM hdb_site sources,hdb_site_datatype sourcesd,  "
+        		+ "hdb_site_datatype outputsdis,hdb_site outputs, cp_ts_id id   "
+        		+ "WHERE   "
+        		+ "sourcesd.site_datatype_id = " + getSDI("HUCPrecip") + " AND    "
+        		+ "sourcesd.site_id = sources.site_id AND  "
+        		+ "outputsdis.site_id = outputs.site_id AND  "
+        		+ "outputs.objecttype_id =   "
+        		+ "(SELECT objecttype_id FROM hdb_objecttype WHERE objecttype_name = 'cul site - " + sector + " reservoir') AND  "
+        		+ "outputs.hydrologic_unit = sources.site_name AND   " //TODO: join hucs and use HUC objecttype?
+        		+ "outputsdis.datatype_id = sourcesd.datatype_id AND  "
+        		+ "id.site_datatype_id = outputsdis.site_datatype_id AND  "
+        		+ "id.interval = '" + getInterval("HUCPrecip") + "' AND  "
         		+ "id.table_selector = '" + getTableSelector("HUCPrecip") + "'";
         
         status = db.performQuery(query,dbobj);
-        if (status.startsWith("ERROR"))
+        if (status.startsWith("ERROR") || !HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries))
         {
             warning(comp.getName() + " Aborted: see following error message");
-            warning(status);
-            return;
+            throw new DbCompException("Unable to find output timeseries! " + status);
         }
-        
-        if (!findOutputSeries(dbobj)) return;
-        
 
 //AW:BEFORE_TIMESLICES_END
 	}
-	
-    /**
-     * runs supplied query for output timeseries site ids and ts_ids, updates global outputSeries hashmap
-     * @param dbobj result from a db query
-     * @return false if failed
-     */
-    private boolean findOutputSeries(DataObject dbobj) {
-
-        // Need to handle multiple TS_IDs!
-        int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        ArrayList<Object> tsids;
-
-        if (count == 0)
-        {
-            warning(comp.getName() + " Aborted: zero output TS_IDs");
-            return false;
-        }
-        else if (count == 1)
-        {
-            tsids = new ArrayList<Object>();
-            tsids.add(dbobj.get("ts"));
-        }
-        else
-        {
-            tsids = (ArrayList<Object>) dbobj.get("ts");
-        }
-
-        Iterator<Object> itId = tsids.iterator();
-        try {
-            while(itId.hasNext()) {
-                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
-                debug3("Output Timeseries ID: " + id);
-                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.putIfAbsent(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
-            return false;
-        }
-        return true;
-    }
 
 	/**
 	 * Do the algorithm for a single time slice.
@@ -223,7 +180,7 @@ public class CULHUCPrecipToReservoirs
 	        sdf.setTimeZone(TimeZone.getTimeZone(DecodesSettings.instance().aggregateTimeZone));
 
             ArrayList<Object> outputs;
-            Object o = dbobj.get("output_site");
+            Object o = dbobj.get("ts");
             int count = Integer.parseInt(dbobj.get("rowCount").toString());
             
             if (count == 0) {
@@ -231,7 +188,7 @@ public class CULHUCPrecipToReservoirs
             }
             else if (count == 1)
             {
-                outputs = new ArrayList<Object>();
+                outputs = new ArrayList<>();
                 outputs.add(o);
             }
             else
@@ -239,23 +196,20 @@ public class CULHUCPrecipToReservoirs
                 outputs = (ArrayList<Object>)o;
             }
 
-            Iterator<Object> it_site = outputs.iterator();
-
             try {
-            	// iterate through site id's, add HUCPrecip input value to each output time series
-                while(it_site.hasNext()) {
-                    String id = it_site.next().toString();
-                    debug3("Output Site ID: " + id);
-                    debug3(comp.getName() + "-" + "Setting output for timeslice: " + debugSdf.format(this._timeSliceBaseTime) +
-                            " value: " + HUCPrecip);
-                    TimedVariable tv = new TimedVariable(_timeSliceBaseTime, HUCPrecip, TO_WRITE);
-                    outputSeries.get(id).addSample(tv);
-                }
+				// iterate through site id's, add HUCPrecip input value to each output time series
+				for (Object output : outputs) {
+					String id = output.toString();
+					CTimeSeries out = outputSeries.get(id);
+					debug3("Output Site ID: " + out.getTimeSeriesIdentifier().getSite().getId() + " comp: " + comp.getName() +
+							" Setting output for timeslice: " + debugSdf.format(this._timeSliceBaseTime) +
+							" value: " + HUCPrecip);
+					TimedVariable tv = new TimedVariable(_timeSliceBaseTime, HUCPrecip, TO_WRITE);
+					out.addSample(tv);
+				}
             } catch (Exception e) {
                 warning(e.toString());
-                return;
             }
-	        
 
 //AW:TIMESLICE_END
 	}
@@ -267,18 +221,16 @@ public class CULHUCPrecipToReservoirs
 		throws DbCompException
 	{
 //AW:AFTER_TIMESLICES
-        for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
-            String k = entry.getKey();
-            CTimeSeries v = entry.getValue();
-            try {
-                debug1(comp.getName() + "-" + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier());
+		for (CTimeSeries v : outputSeries.values()) {
+			TimeSeriesIdentifier id = v.getTimeSeriesIdentifier();
+			try {
+				debug1(comp.getName() + " saving site: " + id.getSiteName() + " timeseries: " + id + " with size: " + v.size());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
             }
         }
-        outputSeries.clear();
         dao.close();
 //AW:AFTER_TIMESLICES_END
 	}

@@ -9,7 +9,6 @@ import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.DecodesSettings;
 import decodes.util.PropertySpec;
 import ilex.util.TextUtil;
-import ilex.var.NamedVariable;
 import ilex.var.TimedVariable;
 import opendcs.dai.TimeSeriesDAI;
 
@@ -96,7 +95,7 @@ public class DynamicSpatialRelationAlg
     DBAccess db = null;
     DataObject dbobj = new DataObject();
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = new HashMap<String, CTimeSeries>();
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<>();
 
     PropertySpec[] specs =
             {
@@ -161,6 +160,7 @@ public class DynamicSpatialRelationAlg
         conn = tsdb.getConnection();
         db = new DBAccess(conn);
         dao = tsdb.makeTimeSeriesDAO();
+        outputSeries.clear();
 
         //get output TS_IDs
         query = " SELECT " +
@@ -181,7 +181,7 @@ public class DynamicSpatialRelationAlg
         debug3("Before TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
 
-        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
+        if (status.startsWith("ERROR") || !findOutputSeries(dbobj)) //unique findOutputSeries because need Site ID mapping
         {
             warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
             warning(status);
@@ -242,12 +242,12 @@ public class DynamicSpatialRelationAlg
 
         if (count == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj.toString());
+            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj);
             return true; // not an error
         }
         else if (count == 1)
         {
-            tsids = new ArrayList<Object>();
+            tsids = new ArrayList<>();
             tsids.add(dbobj.get("ts"));
         }
         else
@@ -306,9 +306,8 @@ public class DynamicSpatialRelationAlg
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
         if (status.startsWith("ERROR") || count != outputSeries.size())
         {
-            warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted at: " + debugSdf.format(this._timeSliceBaseTime) +
-                    " See following error message:");
-            warning(status);
+            throw new DbCompException(comp.getName() + "-" + alg_ver + " TimeSlice aborted at: " + debugSdf.format(this._timeSliceBaseTime) +
+                    " See following error message: " + status);
             // deletions?!?
             //outputSeries.addSample(new TimedVariable(_timeSliceBaseTime, 0, TO_DELETE));
         }
@@ -322,9 +321,9 @@ public class DynamicSpatialRelationAlg
             Object w = dbobj.get("weight");
             if (count == 1)
             {
-                outputs = new ArrayList<Object>();
-                values = new ArrayList<Object>();
-                weights = new ArrayList<Object>();
+                outputs = new ArrayList<>();
+                values = new ArrayList<>();
+                weights = new ArrayList<>();
                 outputs.add(o);
                 values.add(v);
                 weights.add(w);
@@ -336,10 +335,11 @@ public class DynamicSpatialRelationAlg
                 weights = (ArrayList<Object>)w;
             }
 
-            Iterator<Object> itO = outputs.iterator();
-            Iterator<Object> itV = values.iterator();
-            Iterator<Object> itW = weights.iterator();
             try {
+                Iterator<Object> itO = outputs.iterator();
+                Iterator<Object> itV = values.iterator();
+                Iterator<Object> itW = weights.iterator();
+
                 while(itO.hasNext() && itV.hasNext() && itW.hasNext()) {
                     String id = itO.next().toString();
                     debug3("Output Site ID: " + id);
@@ -361,7 +361,6 @@ public class DynamicSpatialRelationAlg
                 }
             } catch (Exception e) {
                 warning(e.toString());
-                return;
             }
         }
 
@@ -387,18 +386,16 @@ public class DynamicSpatialRelationAlg
 	    }
 
         // set the outputs. If some timesteps failed, must be marked for delete above
-        for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
-            String k = entry.getKey();
-            CTimeSeries v = entry.getValue();
+        for (CTimeSeries v : outputSeries.values()) {
+            TimeSeriesIdentifier id = v.getTimeSeriesIdentifier();
             try {
-                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier());
+                debug1(comp.getName() + "-" + alg_ver + "saving site: " + id.getSiteName() + " timeseries: " + id + " with size: " + v.size());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
             }
         }
-        outputSeries.clear();
         dao.close();
 //AW:AFTER_TIMESLICES_END
     }

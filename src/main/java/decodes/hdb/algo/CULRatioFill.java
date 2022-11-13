@@ -3,6 +3,7 @@ package decodes.hdb.algo;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
+import decodes.hdb.dbutils.HDBAlgoTSUtils;
 import decodes.sql.DbKey;
 import decodes.tsdb.CTimeSeries;
 import decodes.tsdb.DbCompException;
@@ -143,12 +144,12 @@ public class CULRatioFill
         // For TimeSlice algorithms this is done once before all slices.
         // For Aggregating algorithms, this is done before each aggregate
         // period.
-
         query = null;
         do_setoutput = true;
         conn = null;
         dao = tsdb.makeTimeSeriesDAO();
         do_setoutput = true;
+        outputSeries.clear();
 
         // handle flags and output series here because they're dynamic
         if (!flags.isEmpty())
@@ -211,11 +212,9 @@ public class CULRatioFill
         // now see if the aggregate query worked if not abort!!!
 
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        if (status.startsWith("ERROR") || count < 1 || !findOutputSeries(dbobj))
+        if (status.startsWith("ERROR") || count < 1 || !HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries))
         {
-            warning(comp.getName()+"-"+alg_ver+" Aborted or no output timeseries for basin " + getSiteName("total") + ": see following error message");
-            warning(status);
-            return;
+            throw new DbCompException(comp.getName()+"-"+alg_ver+" Aborted or no output timeseries for basin " + getSiteName("total") + ":" + status);
         }
 
         ArrayList<Object> ratios;
@@ -292,61 +291,18 @@ public class CULRatioFill
         // calculate number of days in the month in case the numbers are for month derivations
         debug1(comp.getAlgorithmName()+"-"+alg_ver+" BEGINNING OF AFTER TIMESLICES, SDI: " + getSDI("total"));
 
-        for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
-            String k = entry.getKey();
-            CTimeSeries v = entry.getValue();
+        for (CTimeSeries v : outputSeries.values()) {
+            TimeSeriesIdentifier id = v.getTimeSeriesIdentifier();
             try {
-                debug1(comp.getName() + "-" + alg_ver + "saving tsid: " + k + " timeseries: " + v.getTimeSeriesIdentifier());
+                debug1(comp.getName() + "-" + alg_ver + "saving site: " + id.getSiteName() + " timeseries: " + id + " with size: " + v.size());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
             }
         }
-        outputSeries.clear();
         dao.close();
 //AW:AFTER_TIMESLICES_END
-    }
-
-    /**
-     * runs supplied query for output timeseries site ids and ts_ids, updates global outputSeries hashmap
-     * @param dbobj result from a db query
-     * @return false if failed
-     */
-    private boolean findOutputSeries(DataObject dbobj) {
-
-        // Need to handle multiple TS_IDs!
-        int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        ArrayList<Object> tsids;
-
-        if (count == 0)
-        {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
-            return false;
-        }
-        else if (count == 1)
-        {
-            tsids = new ArrayList<>();
-            tsids.add(dbobj.get("ts"));
-        }
-        else
-        {
-            tsids = (ArrayList<Object>) dbobj.get("ts");
-        }
-
-        Iterator<Object> itId = tsids.iterator();
-        try {
-            while(itId.hasNext()) {
-                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
-                debug3("Output Timeseries ID: " + id);
-                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.putIfAbsent(id.toString(),dao.makeTimeSeries(tsid));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
-            return false;
-        }
-        return true;
     }
 
     /**
