@@ -105,7 +105,7 @@ public class DynamicSpatialAggregateAlg
     String selectClause;
     Connection conn = null;
     DBAccess db = null;
-    DataObject dbobj = new DataObject();
+    DataObject dbobj;
     TimeSeriesDAI dao = null;
     CTimeSeries outputSeries = null;
 
@@ -175,12 +175,9 @@ public class DynamicSpatialAggregateAlg
         // For Aggregating algorithms, this is done before each aggregate
         // period.
 
+        dbobj = new DataObject();
         dbobj.put("ALG_VERSION",alg_ver);
-        conn = tsdb.getConnection();
-        db = new DBAccess(conn);
-        
-        dao = tsdb.makeTimeSeriesDAO();
-        String status;
+
 
         //get output TS_ID
         query = " SELECT\n" +
@@ -217,20 +214,21 @@ public class DynamicSpatialAggregateAlg
         }
         debug3("Before TimeSlice Query: " + query);
 
-        status = db.performQuery(query,dbobj);
+        conn = tsdb.getConnection();
+        db = new DBAccess(conn);
+
+        String status = db.performQuery(query,dbobj);
         if (status.startsWith("ERROR"))
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
-            warning(status);
-            return;
+            throw new DbCompException(comp.getName() + "-" + alg_ver + " Aborted: see following error message: " + status);
         }
 
         if (Integer.parseInt(dbobj.get("rowCount").toString()) == 0)
         {
-            warning(comp.getName() + "-" + alg_ver + " No timeseries returned for " + getSiteName("input"));
-            return;
+            throw new DbCompException(comp.getName() + "-" + alg_ver + " No timeseries returned for " + getSiteName("input"));
         }
 
+        dao = tsdb.makeTimeSeriesDAO();
         DbKey ts = DbKey.createDbKey(Long.parseLong(dbobj.get("ts").toString()));
         debug3("Output Timeseries ID: " + ts);
         TimeSeriesIdentifier tsid;
@@ -238,8 +236,8 @@ public class DynamicSpatialAggregateAlg
             tsid = dao.getTimeSeriesIdentifier(ts);
             outputSeries = dao.makeTimeSeries(tsid);
         } catch (DbIoException | NoSuchObjectException e) {
-            warning(e.toString());
-            return;
+            dao.close();
+            throw new DbCompException(e.toString());
         }
 
         // now build query for sums
@@ -286,9 +284,8 @@ public class DynamicSpatialAggregateAlg
 
         if (!foundPeers)
         {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + output_site_method);
             outputSeries = null;
-            return;
+            throw new DbCompException(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + output_site_method);
         }
 
         selectClause = " SELECT sum(VALUE) value FROM t";
@@ -380,8 +377,9 @@ public class DynamicSpatialAggregateAlg
     		outputSeries.setComputationId(comp.getId());
             dao.saveTimeSeries(outputSeries);
         } catch (DbIoException | BadTimeSeriesException e) {
-            warning("Exception during saving output to database:" + e.toString());
+            warning("Exception during saving output to database:" + e);
         }
+        dao.close();
         outputSeries = null; //clean up
 //AW:AFTER_TIMESLICES_END
     }

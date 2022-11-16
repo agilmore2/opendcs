@@ -3,6 +3,7 @@ package decodes.hdb.algo;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
+import decodes.hdb.dbutils.HDBAlgoTSUtils;
 import decodes.sql.DbKey;
 import decodes.tsdb.*;
 import decodes.tsdb.algo.AWAlgoType;
@@ -83,7 +84,8 @@ public class CULEstimateCUFromPopulation
     DataObject dbobj = new DataObject();
 
     TimeSeriesDAI dao = null;
-    HashMap<String,CTimeSeries> outputSeries = new HashMap<String,CTimeSeries>();
+    HashMap<String,CTimeSeries> outputSeries = new HashMap<>();
+    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 
     PropertySpec[] specs =
             {
@@ -107,7 +109,6 @@ public class CULEstimateCUFromPopulation
 
     String[] _propertyNames = { "validation_flag", "rounding" };
 //AW:PROPERTIES_END
-    SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 
     // Allow javac to generate a no-args constructor.
 
@@ -141,9 +142,10 @@ public class CULEstimateCUFromPopulation
         db = new DBAccess(conn);
         dao = tsdb.makeTimeSeriesDAO();
         dbobj.put("ALG_VERSION",alg_ver);
+        outputSeries.clear();
         debug3("beforeTimeSlices");
 
-        TreeSet<Date> newDates = new TreeSet<Date>();
+        TreeSet<Date> newDates = new TreeSet<>();
 
         ParmRef epref = getParmRef(EST_POP);
         if (epref != null)
@@ -227,7 +229,7 @@ public class CULEstimateCUFromPopulation
      */
     private TreeSet<Date> estimateTriggeredDates(ParmRef epref) {
         int n = epref.timeSeries.size(); //vars is private, can't use an iterator
-        TreeSet<Date> newDates = new TreeSet<Date>();
+        TreeSet<Date> newDates = new TreeSet<>();
         for(int i=0; i<n; i++)
         {
             TimedVariable tv = epref.timeSeries.sampleAt(i);
@@ -340,7 +342,8 @@ public class CULEstimateCUFromPopulation
 
         debug3("TimeSlice Query: " + query);
         status = db.performQuery(query,dbobj);
-        if (status.startsWith("ERROR") || !findOutputSeries(dbobj))
+        if (status.startsWith("ERROR") || !HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries) ||
+                outputSeries.isEmpty())
         {
             warning(comp.getName() + "-" + alg_ver + " TimeSlice aborted at: " + debugSdf.format(this._timeSliceBaseTime) +
                     " See following error message:");
@@ -364,8 +367,8 @@ public class CULEstimateCUFromPopulation
             Object v = dbobj.get(CUR_MI_CU);
             if (count == 1)
             {
-                outputs = new ArrayList<Object>();
-                values = new ArrayList<Object>();
+                outputs = new ArrayList<>();
+                values = new ArrayList<>();
                 outputs.add(o);
                 values.add(v);
             }
@@ -405,47 +408,6 @@ public class CULEstimateCUFromPopulation
     }
 
     /**
-     * runs supplied query for output timeseries site ids and ts_ids, updates global outputSeries hashmap
-     * @param dbobj result from a db query
-     * @return false if failed
-     */
-    private boolean findOutputSeries(DataObject dbobj) {
-        int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        ArrayList<Object> tsids;
-
-        if (count == 0)
-        {
-            debug1(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs");
-            debug1(status);
-            return false;
-        }
-        else if (count == 1)
-        {
-            tsids = new ArrayList<Object>();
-            tsids.add(dbobj.get("ts"));
-        }
-        else
-        {
-            tsids = (ArrayList<Object>) dbobj.get("ts");
-        }
-
-        Iterator<Object> itId = tsids.iterator();
-        try {
-            while(itId.hasNext()) {
-                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
-                debug3("Output Timeseries ID: " + id);
-                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.putIfAbsent(tsid.getSite().getId().toString(),dao.makeTimeSeries(tsid));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
-            return false;
-        }
-        return true;
-    }
-
-
-    /**
      * This method is called once after iterating all time slices.
      */
     protected void afterTimeSlices()
@@ -457,18 +419,16 @@ public class CULEstimateCUFromPopulation
         // For Aggregating algorithms, this is done after each aggregate
         // period.
         // set the outputs. If some timesteps failed, must be marked for delete above
-        for (Map.Entry<String, CTimeSeries> entry : outputSeries.entrySet()) {
-            String k = entry.getKey();
-            CTimeSeries v = entry.getValue();
+        for (CTimeSeries v : outputSeries.values()) {
+            TimeSeriesIdentifier id = v.getTimeSeriesIdentifier();
             try {
-                debug1(comp.getName() + "-" + alg_ver + "saving site: " + k + " timeseries: " + v.getTimeSeriesIdentifier() + " with size: " + v.size());
+                debug1(comp.getName() + "-" + alg_ver + "saving site: " + id.getSiteName() + " timeseries: " + id + " with size: " + v.size());
                 v.setComputationId(comp.getId());
                 dao.saveTimeSeries(v);
             } catch (Exception e) {
                 warning("Exception during saving output to database:" + e);
             }
         }
-        outputSeries.clear();
         dao.close();
 //AW:AFTER_TIMESLICES_END
     }

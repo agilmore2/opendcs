@@ -3,11 +3,11 @@ package decodes.hdb.algo;
 import decodes.hdb.HdbFlags;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
+import decodes.hdb.dbutils.HDBAlgoTSUtils;
 import decodes.sql.DbKey;
 import decodes.tsdb.CTimeSeries;
 import decodes.tsdb.DbCompException;
 import decodes.tsdb.ParmRef;
-import decodes.tsdb.TimeSeriesIdentifier;
 import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.PropertySpec;
 import ilex.util.TextUtil;
@@ -157,6 +157,7 @@ public class CULStateTribRatioCompute
         do_setoutput = true;
         conn = null;
         dao = tsdb.makeTimeSeriesDAO();
+        outputSeries.clear();
 
 //AW:BEFORE_TIMESLICES_END
     }
@@ -271,7 +272,7 @@ public class CULStateTribRatioCompute
         // now see if the aggregate query worked if not abort!!!
 
         int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        if (status.startsWith("ERROR") || count < 1 || !findOutputSeries(dbobj))
+        if (status.startsWith("ERROR") || count < 1 || !HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries))
         {
             warning(comp.getName()+"-"+alg_ver+" Aborted: see following error message");
             warning(status);
@@ -340,54 +341,12 @@ public class CULStateTribRatioCompute
                 warning("Exception during saving output to database:" + e);
             }
         }
-        outputSeries.clear();
 
         // don't need to complain that ratio can't be saved from non-aggregating, we already saved it
         ratioRef.timeSeries.deleteAll();
 
         dao.close();
 //AW:AFTER_TIMESLICES_END
-    }
-
-    /**
-     * runs supplied query for output timeseries site ids and ts_ids, updates global outputSeries hashmap
-     * @param dbobj result from a db query
-     * @return false if failed
-     */
-    private boolean findOutputSeries(DataObject dbobj) {
-
-        // Need to handle multiple TS_IDs!
-        int count = Integer.parseInt(dbobj.get("rowCount").toString());
-        ArrayList<Object> tsids;
-
-        if (count == 0)
-        {
-            warning(comp.getName() + "-" + alg_ver + " Aborted: zero output TS_IDs, site: " + getSiteName("input") + "dbobj: " +dbobj);
-            return false;
-        }
-        else if (count == 1)
-        {
-            tsids = new ArrayList<>();
-            tsids.add(dbobj.get("ts"));
-        }
-        else
-        {
-            tsids = (ArrayList<Object>) dbobj.get("ts");
-        }
-
-        Iterator<Object> itId = tsids.iterator();
-        try {
-            while(itId.hasNext()) {
-                DbKey id = DbKey.createDbKey(Long.parseLong(itId.next().toString()));
-                debug3("Output Timeseries ID: " + id);
-                TimeSeriesIdentifier tsid = dao.getTimeSeriesIdentifier(id);
-                outputSeries.putIfAbsent(id.toString(),dao.makeTimeSeries(tsid));
-            }
-        } catch (Exception e) {
-            warning(e.toString());
-            return false;
-        }
-        return true;
     }
 
     /**

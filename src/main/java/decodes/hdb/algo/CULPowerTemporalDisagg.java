@@ -313,4 +313,11 @@ public class CULPowerTemporalDisagg
 	{
 		return _propertyNames;
 	}
+
+	@Override
+	protected PropertySpec[] getAlgoPropertySpecs()
+	{
+		return specs;
+	}
+
 }

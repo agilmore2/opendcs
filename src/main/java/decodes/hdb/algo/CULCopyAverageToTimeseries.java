@@ -1,31 +1,28 @@
 package decodes.hdb.algo;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.TimeZone;
-import java.sql.Connection;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-
-import ilex.var.NamedVariable;
 import decodes.hdb.dbutils.DBAccess;
 import decodes.hdb.dbutils.DataObject;
 import decodes.sql.DbKey;
 import decodes.tsdb.DbCompException;
-import decodes.tsdb.algo.AWAlgoType;
 import decodes.tsdb.ParmRef;
+import decodes.tsdb.algo.AWAlgoType;
 import decodes.util.PropertySpec;
+import ilex.var.NamedVariable;
+
+import java.sql.Connection;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 //AW:IMPORTS
 // Place an import statements you need here.
 //AW:IMPORTS_END
 
 //AW:JAVADOC
+
 /**
-This algorithm fills missing climate data for the CUL climate stations used to estimate past reservoir evaporation.
-When a site is missing precip or temperature data, use the average of all other data points at that site for the current month.
+ Copy monthly averages of one timeseries to another timeseries.
+ Output timeseries determined by parameters
 
  Specific to r_month data
 
@@ -65,7 +62,7 @@ ORDER BY dt
 
  */
 //AW:JAVADOC_END
-public class CULFillMissingClimateData
+public class CULCopyAverageToTimeseries
 	extends decodes.tsdb.algo.AW_AlgorithmBase
 {
 //AW:INPUTS
@@ -174,10 +171,10 @@ public class CULFillMissingClimateData
         
         // Query to get monthly averages from source data
         query = "SELECT EXTRACT(MONTH FROM r.start_date_time) month, AVG(r.value) avg FROM r_month r, r_base b "
-    			+ "WHERE b.interval = 'month' "
+				+ "WHERE b.interval = 'month' "
 				+ "AND r.site_datatype_id = " + sdi + " "
 				+ "AND r.site_datatype_id = b.site_datatype_id "
-        		+ "AND r.start_date_time = b.start_date_time "
+				+ "AND r.start_date_time = b.start_date_time "
         		+ "AND b.loading_application_id NOT IN "
         		+	"( "
         		+	"SELECT loading_application_id FROM hdb_loading_application WHERE "
@@ -199,23 +196,9 @@ public class CULFillMissingClimateData
         
         ArrayList<Object> monthlyAvgs = (ArrayList<Object>) dbobj.get("avg");
         
-        // Query to get months to fill
-        query = "WITH allDates AS "
-        		+ "( "
-        		+ "select date_time dt from table(dates_between(DATE '" + fillStartYr + "-01-01',trunc(sysdate, 'month'), 'month')) "
-        		+ ") "
-        		+ "SELECT dt FROM allDates WHERE dt NOT IN "
-        		+ "( "
-        		+ "SELECT start_date_time FROM r_base "
-        		+ "WHERE interval = 'month' "
-        		+ "AND site_datatype_id = " + sdi + " "
-        		+ "AND loading_application_id NOT IN "
-        		+ "	( "
-        		+ "	SELECT loading_application_id FROM hdb_loading_application WHERE "
-        		+ "	loading_application_name IN('" + estimation_process + "','CU_FillMissing') "
-        		+ "	) "
-        		+ ") "
-        		+ "ORDER BY dt";
+        // Query to find all months to fill
+        query = "select date_time dt from table(dates_between(DATE '" + fillStartYr + "-01-01',trunc(sysdate, 'month'), 'month')) "
+        	  + "ORDER BY dt";
         
         status = db.performQuery(query,dbobj);
         debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
