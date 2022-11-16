@@ -162,7 +162,7 @@ public class CULFillMissingTSDatatypeMap
 		debug3("Before TimeSlice Query: " + query);
 		status = db.performQuery(query,dbobj);
 
-		if (status.startsWith("ERROR") || HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries))
+		if (status.startsWith("ERROR") || !HDBAlgoTSUtils.findOutputSeries(dbobj, dao, outputSeries))
 		{
 			warning(comp.getName() + "-" + alg_ver + " Aborted: see following error message");
 			warning(status);
