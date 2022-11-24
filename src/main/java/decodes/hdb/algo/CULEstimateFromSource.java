@@ -90,6 +90,7 @@ public class CULEstimateFromSource
     int count = 0;
     boolean do_setoutput = true;
     Connection conn = null;
+    String siteEndDate;
 
     private static final Pattern loadappPattern = Pattern.compile("^\\w+$"); //only alphanumeric+_ allowed
 
@@ -101,6 +102,8 @@ public class CULEstimateFromSource
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
                             "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
+                    new PropertySpec("endDateAttribute",PropertySpec.STRING,
+                    		"(null) Specify attribute to check for site end date if applicable")
             };
 
 
@@ -117,8 +120,9 @@ public class CULEstimateFromSource
     public String estimation_process = "CU_Agg_Disagg";
     public String validation_flag = "";
     public String flags;
+    public String endDateAttribute = "";
 
-    String[] _propertyNames = { "estimation_process", "validation_flag", "rounding" };
+    String[] _propertyNames = { "estimation_process", "validation_flag", "rounding","endDateAttribute" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
@@ -154,6 +158,34 @@ public class CULEstimateFromSource
             warning("Loading application name not valid: "+estimation_process);
             return;
         }
+        
+        conn = tsdb.getConnection();
+        String status;
+        DataObject dbobj = new DataObject();
+        DBAccess db = new DBAccess(conn);
+        
+        // get end date for site from ref_site_coef, if an attribute is provided (used for power plants)
+        if(endDateAttribute != "")
+        {
+    		query = "SELECT rsc.site_id,TO_CHAR(rsc.effective_end_date_time,'DD-MON-YYYY') edt FROM\r\n"
+    				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
+    				+ "ON rsc.attr_id = a.attr_id\r\n"
+    				+ "WHERE \r\n"
+    				+ "rsc.site_id = " + getSiteName("input","hdb") + " AND\r\n"
+    				+ "a.attr_name = '" + endDateAttribute + "'";
+    		
+            status = db.performQuery(query,dbobj);
+            if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
+            {
+            	warning(comp.getName() + " Problem with metadata for site " + getSiteName("input","hdb"));
+            }
+            else
+            {
+
+            	siteEndDate = dbobj.get("edt").toString();
+            }
+        }
+  
 
         query = null;
         count = 0;
@@ -221,6 +253,15 @@ public class CULEstimateFromSource
         {
             comp.setValidEnd(new Date()); //now - causes SQL Exception when dates between returns a future month
         }
+        
+        // if applicable, get end date for the site. For months after end date, site data will be filled with 0's
+        Date endMon;
+        try {
+			endMon = sdf.parse(siteEndDate);
+		} catch (ParseException e1) {
+			endMon = null;
+		}
+    	
         // get the connection  and a few other classes so we can do some sql
         conn = tsdb.getConnection();
 
@@ -300,18 +341,26 @@ public class CULEstimateFromSource
 
         // set the output if all is successful and set the flags appropriately
         if (do_setoutput) {
+        	Date mon;
             Iterator<Object> it1 = dates.iterator();
             Iterator<Object> it2 = aves.iterator();
             while (it1.hasNext() && it2.hasNext()) {
 				try {
-					Date mon = sdf.parse( it1.next().toString());
+					mon = sdf.parse( it1.next().toString());
 	                cal.setTime(mon);
 				} catch (ParseException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 					return;
 				}
-                double ave = Double.parseDouble(it2.next().toString());
+                double ave;
+                if(endMon != null && mon.compareTo(endMon) > 0)
+            	{
+                	ave = 0;
+            	}else
+            	{
+            		ave = Double.parseDouble(it2.next().toString()); 
+            	}
 
                 info("Setting output for " + debugSdf.format(cal.getTime()));
                 VarFlags.setToWrite(output);
