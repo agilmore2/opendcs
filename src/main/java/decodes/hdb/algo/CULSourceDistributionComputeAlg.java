@@ -146,8 +146,7 @@ public class CULSourceDistributionComputeAlg
 
         // protects against SQL injection string shenanigans, avoid Bobby problem?
         if ( !loadappPattern.matcher( estimation_process ).matches()) {
-            warning("Loading application name not valid: "+estimation_process);
-            return;
+            throw new DbCompException("Loading application name not valid: "+estimation_process);
         }
 
         query = null;

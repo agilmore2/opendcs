@@ -153,8 +153,7 @@ public class CULRatioComputeAlg
 
         // protects against SQL injection string shenanigans, avoid Bobby problem?
         if ( !loadappPattern.matcher( estimation_process ).matches()) {
-            warning("Loading application name not valid: "+estimation_process);
-            return;
+            throw new DbCompException("Loading application name not valid: "+estimation_process);
         }
 
         query = null;
@@ -281,7 +280,7 @@ public class CULRatioComputeAlg
 
         status = db.performQuery(query,dbobj); // interface has no methods for parameters
 
-        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj.toString() + "STATUS:  " + status);
+        debug3(" SQL STRING:" + query + "   DBOBJ: " + dbobj + "STATUS:  " + status);
         // now see if the aggregate query worked if not abort!!!
 
         if (status.startsWith("ERROR") || ((Integer) dbobj.get("rowCount")) != 1)

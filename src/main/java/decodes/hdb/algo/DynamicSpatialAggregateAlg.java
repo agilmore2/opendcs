@@ -13,12 +13,10 @@ import ilex.util.TextUtil;
 import ilex.var.NamedVariable;
 import ilex.var.TimedVariable;
 import opendcs.dai.TimeSeriesDAI;
-import opendcs.dao.DaoBase;
 
 import java.sql.Connection;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.regex.Pattern;
 
 import static decodes.tsdb.VarFlags.TO_DELETE;
 import static decodes.tsdb.VarFlags.TO_WRITE;

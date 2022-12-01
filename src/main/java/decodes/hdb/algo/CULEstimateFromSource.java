@@ -155,8 +155,7 @@ public class CULEstimateFromSource
 
         // protects against SQL injection string shenanigans, avoid Bobby problem?
         if ( !loadappPattern.matcher( estimation_process ).matches()) {
-            warning("Loading application name not valid: "+estimation_process);
-            return;
+            throw new DbCompException("Loading application name not valid: "+estimation_process);
         }
         
         conn = tsdb.getConnection();
@@ -165,7 +164,7 @@ public class CULEstimateFromSource
         DBAccess db = new DBAccess(conn);
         
         // get end date for site from ref_site_coef, if an attribute is provided (used for power plants)
-        if(endDateAttribute != "")
+        if(!endDateAttribute.equals(""))
         {
     		query = "SELECT rsc.site_id,TO_CHAR(rsc.effective_end_date_time,'DD-MON-YYYY') edt FROM\r\n"
     				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
