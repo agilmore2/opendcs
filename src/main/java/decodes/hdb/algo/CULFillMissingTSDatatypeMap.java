@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 //AW:IMPORTS
 // Place an import statements you need here.
@@ -74,6 +75,8 @@ public class CULFillMissingTSDatatypeMap
 	DataObject dbobj;
 	TimeSeriesDAI dao = null;
 	HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
+	private static final Pattern mapPattern = Pattern.compile("^[\\w\\h]+$"); //only alphanumeric+_, and spaces allowed
+
 
 	PropertySpec[] specs = 
 		{
@@ -132,6 +135,9 @@ public class CULFillMissingTSDatatypeMap
 		// For TimeSlice algorithms this is done once before all slices.
 		// For Aggregating algorithms, this is done before each aggregate
 		// period.
+		if ( !mapPattern.matcher( extDataMap ).matches()) {
+			throw new DbCompException("Loading application name not valid: " + extDataMap);
+		}
 
 		dbobj = new DataObject();
 		dbobj.put("ALG_VERSION",alg_ver);
@@ -155,6 +161,7 @@ public class CULFillMissingTSDatatypeMap
 				" source.ext_data_source_name = '" + extDataMap + "' and " +
 				" source.ext_data_source_id = map.ext_data_source_id and " +
 				" map.hdb_site_datatype_id = id.site_datatype_id and " +
+				" map.is_active_y_n = 'Y' and " +
 				" sd.site_datatype_id = map.hdb_site_datatype_id and " +
 				" sd.datatype_id in ( " + builder + " ) and " +
 				" id.interval = map.hdb_interval_name ";
@@ -239,8 +246,7 @@ public class CULFillMissingTSDatatypeMap
         	}
 			int count = ((Integer) dbobj.get("rowCount"));
 			if (count == 0)
-				return;
-        
+				continue;
 
 	        // Occasionally a TS will have exactly one month to fill, which can't be directly cast to arrayList. Handle separately
     	    ArrayList<Object> monthsToFill;
