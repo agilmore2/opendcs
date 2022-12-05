@@ -22,14 +22,14 @@ import java.util.regex.Pattern;
 /**
  This algorithm computes the average ratio between two timeseries for use in estimating the
  distribution of the timeseries when only the total is known.
- Only applies to R_MONTH
+ Only applies to R_YEAR
 
  ESTIMATE_PROCESS: Algorithms used on the input data that are NOT considered source data
  ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
 
  Algorithm is as follows:
  query average ratio of one timeseries to the sum of the two grouped by month
- store 12 values in r_month table in a specific year, 1985 by convention, set by computation output variables
+ store 1 value in r_year table in a specific year, 1985 by convention, set by computation output variables
  decide if want to check for update or just have database catch duplicates
 
  working? SQL query to compute data:
@@ -93,7 +93,7 @@ public class CULRatioComputeAlg
                     new PropertySpec("flags", PropertySpec.STRING,
                             "(empty) Always set these dataflags in the output."),
                     new PropertySpec("estimation_process", PropertySpec.STRING,
-                            "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
+                            "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored along with CU_FillMissing."),
                     new PropertySpec("src_startyr", PropertySpec.INT,
                     		"(1976) Start year of source data used to calculate disagg coefficients"),
                     new PropertySpec("src_endyr", PropertySpec.INT,

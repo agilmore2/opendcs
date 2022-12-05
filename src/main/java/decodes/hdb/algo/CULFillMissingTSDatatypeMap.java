@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 
 /**
 This algorithm fills missing data for RiverWare DMI usage.
-Queries the generic mop and fills any missing data with specified value. Uses input TS group for datatypes to limit TSID query
+Queries the generic map and fills any missing data with specified value. Uses input TS group for datatypes to limit TSID query
 
  CUL Input parameter should be monthly data at state huc CP level, but will be run as a timed computation.
  Requires that input Timeseries Group specifies datatype ids! Datatype ids will be joined with input data_source map

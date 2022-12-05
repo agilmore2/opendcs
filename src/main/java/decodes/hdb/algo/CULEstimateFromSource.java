@@ -157,7 +157,8 @@ public class CULEstimateFromSource
         if ( !loadappPattern.matcher( estimation_process ).matches()) {
             throw new DbCompException("Loading application name not valid: "+estimation_process);
         }
-        
+
+        siteEndDate = "";
         conn = tsdb.getConnection();
         String status;
         DataObject dbobj = new DataObject();
@@ -176,11 +177,10 @@ public class CULEstimateFromSource
             status = db.performQuery(query,dbobj);
             if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
             {
-            	warning(comp.getName() + " Problem with metadata for site " + getSiteName("input","hdb"));
+            	throw new DbCompException(comp.getName() + " Problem with metadata for site " + getSiteName("input","hdb"));
             }
             else
             {
-
             	siteEndDate = dbobj.get("edt").toString();
             }
         }

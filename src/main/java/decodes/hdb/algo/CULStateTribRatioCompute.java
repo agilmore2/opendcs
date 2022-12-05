@@ -33,7 +33,10 @@ import static java.lang.Math.abs;
  distribution of the timeseries when only the basin total is known.
  Only applies to R_YEAR
 
- ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
+ rounding: determines if rounding to the 7th decimal point is desired, default FALSE
+ src_startyr: start year of source data used to calculate disagg coefficients, Default 1976
+ end_startyr: start year of source data used to calculate disagg coefficients, Default 1985
+ coeff_year: what year to write coefficients into, default 1985
 
  Algorithm is as follows:
  query average ratio of one timeseries to the total

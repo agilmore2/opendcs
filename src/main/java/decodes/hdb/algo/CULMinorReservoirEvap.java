@@ -152,17 +152,15 @@ public class CULMinorReservoirEvap
 	       debug3(comp.getName() + " - " + " BEGINNING OF doAWTimeSlice for period: " +
 	                _timeSliceBaseTime + " SDI: " + getSDI("ResPrecip"));
 
-	       if(salvage == -999 || fullnessFactor == -999 || evapRate == -999 || maxSurfaceArea == -999)
+		   // beforeTimeslice ensures that comp metadata is correct
+	       if (_timeSliceBaseTime.getYear() + 1900 < resStartYr)
 	       {
-	    	   warning(comp.getName() + " - " + " Problem with metadata for site " + getSiteName("ResPrecip","hbd"));
+	    	   warning(comp.getName() + " - " + " Skipping timestep before reservoir start year for site " + getSiteName("ResPrecip","hdb"));
 	    	   return;
-	       }else if (_timeSliceBaseTime.getYear() + 1900 < resStartYr)
+	       }
+		   else if (resEndYr != 0 && _timeSliceBaseTime.getYear() + 1900 > resEndYr)
 	       {
-	    	   warning(comp.getName() + " - " + " Skipping timestep before reservoir start year for site " + getSiteName("ResPrecip","hbd"));
-	    	   return;
-	       }else if (resEndYr != 0 && _timeSliceBaseTime.getYear() + 1900 > resEndYr)
-	       {
-	    	   warning(comp.getName() + " - " + " Skipping timestep after reservoir end year for site " + getSiteName("ResPrecip","hbd"));
+	    	   warning(comp.getName() + " - " + " Skipping timestep after reservoir end year for site " + getSiteName("ResPrecip","hdb"));
 	    	   return;	    	   
 	       }
 	       
@@ -180,7 +178,8 @@ public class CULMinorReservoirEvap
 		throws DbCompException
 	{
 //AW:AFTER_TIMESLICES
-
+		resStartYr = 1900;
+		resEndYr = Integer.MAX_VALUE;
 //AW:AFTER_TIMESLICES_END
 	}
 	
@@ -189,6 +188,7 @@ public class CULMinorReservoirEvap
 	 * Takes an attribute name as input
 	 */
 	private double getAttrValue(String attrName)
+			throws DbCompException
 	{
 		query = "SELECT rsc.coef, EXTRACT(year FROM rsc.effective_start_date_time) syr, NVL(EXTRACT(year FROM rsc.effective_end_date_time),0) eyr FROM\r\n"
 				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
@@ -200,8 +200,7 @@ public class CULMinorReservoirEvap
         status = db.performQuery(query,dbobj);
         if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
         {
-        	warning(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
-        	return -999;
+        	throw new DbCompException(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
         }
         else
         {

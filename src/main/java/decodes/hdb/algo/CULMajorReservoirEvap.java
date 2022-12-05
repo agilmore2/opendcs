@@ -148,8 +148,7 @@ public class CULMajorReservoirEvap
         status = db.performQuery(query,dbobj);
         if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 12)
         {
-        	warning(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
-        	return;
+        	throw new DbCompException(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
         }
         else
         {
@@ -180,12 +179,7 @@ public class CULMajorReservoirEvap
 	       debug3(comp.getName() + " - " + " BEGINNING OF doAWTimeSlice for period: " +
 	                _timeSliceBaseTime + " SDI: " + getSDI("ResPrecip"));
 
-	       if(annualSalvage == -999 || annualEvapRate == -999)
-	       {
-	    	   warning(comp.getName() + " - " + " Problem with metadata for site " + getSiteName("ResPrecip","hbd"));
-	    	   return;
-	       }
-	       
+		   // beforeTimeslice checks metadata is correct
 	       // extract month number from time slice base time (1-12) and year
 	       int mon = _timeSliceBaseTime.getMonth(); // 0 - 11
 	       int yr = _timeSliceBaseTime.getYear() + 1900; // getYear returns yr - 1900    
@@ -236,6 +230,7 @@ public class CULMajorReservoirEvap
 	 * Takes an attribute name as input
 	 */
 	private double getAttrValue(String attrName)
+			throws DbCompException
 	{
 		query = "SELECT rsc.coef FROM\r\n"
 				+ "ref_site_coef rsc INNER JOIN hdb_attr a\r\n"
@@ -247,8 +242,7 @@ public class CULMajorReservoirEvap
         status = db.performQuery(query,dbobj);
         if (status.startsWith("ERROR") || Integer.parseInt(dbobj.get("rowCount").toString()) != 1)
         {
-        	warning(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
-        	return -999;
+        	throw new DbCompException(comp.getName() + " Problem with reservoir metadata for site " + getSiteName("ResPrecip","hdb"));
         }
         else
         {

@@ -38,7 +38,6 @@ import ilex.var.NoConversionException;
 
 //AW:JAVADOC
 /**
-Type a javadoc-style comment describing the algorithm class.
 
 
  */
@@ -65,7 +64,7 @@ public class CULPowerTemporalDisagg
     PropertySpec[] specs =
         {
         		new PropertySpec("coeff_year", PropertySpec.INT,
-                        "(1985) What year to write coefficients into"),
+                        "(1985) What year to read coefficients from, currently unused!"),
         };
 
 //AW:LOCALVARS_END
@@ -209,8 +208,7 @@ public class CULPowerTemporalDisagg
 		ArrayList<Object> monthlyCoefficients = (ArrayList<Object>) dbobj.get("value");
 		if(monthlyCoefficients.size() != 12)
 		{
-			System.out.println("Something wrong with monthly coefficients"); // improve error handling
-			return;
+			throw new DbCompException("Something wrong with monthly coefficients in query: " + query); // improve error handling
 		}
 
 		

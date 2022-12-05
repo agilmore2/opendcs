@@ -33,7 +33,7 @@ import static decodes.tsdb.VarFlags.TO_WRITE;
 
  OUTPUT_SITE_METHOD: Type of spatial resolution to use. Options are Parent, HUC, Basin, and ? for compdepends.
  PEER_SITE_METHOD: Method to select sites to aggregate. Options are Parent, HUC, Basin, and compdepends.
- NO_ROUNDING: determines if rounding to the 5th decimal point is desired, default FALSE
+ NO_ROUNDING: determines if rounding to the 7th decimal point is desired, default FALSE
 
  Algorithm is as follows:
  Sum all sites found using the peer method.

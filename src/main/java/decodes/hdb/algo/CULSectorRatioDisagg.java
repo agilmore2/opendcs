@@ -47,7 +47,7 @@ public class CULSectorRatioDisagg
 				new PropertySpec("flags", PropertySpec.STRING,
 						"(empty) Always set these dataflags in the output."),
 				new PropertySpec("estimation_process", PropertySpec.STRING,
-						"(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
+						"(CU_Agg_Disagg) Which loading application produces estimates that should be ignored along with CU_FillMissing."),
 				new PropertySpec("coeff_year", PropertySpec.INT,
                         "(1985) What year to retrieve coefficients from"),
         };
@@ -146,9 +146,7 @@ public class CULSectorRatioDisagg
 		status = this.doQuery(query, dbobj, db);
 		if (status.startsWith("ERROR") || (Integer) dbobj.get("rowCount") != 1)
 		{
-			warning (comp.getName() + "Something wrong with coefficient query");
-			warning(status);
-			return;
+			throw new DbCompException (comp.getName() + "Something wrong with coefficient query: " + query + status );
 		}
 
 		double coeff = Double.parseDouble((String) dbobj.get("coeff"));
@@ -168,9 +166,7 @@ public class CULSectorRatioDisagg
         status = this.doQuery(query, dbobj, db);
 		if (status.startsWith("ERROR") || (Integer) dbobj.get("rowCount") < 2)
 		{
-			warning(comp.getName() + ": Value query failed or returned only one row."); // improve error handling
-			warning(status);
-			return;
+			throw new DbCompException (comp.getName() + ": Value query failed or returned only one row: " + query + status );
 		}
 
         ArrayList<Object> YearstoDisagg = (ArrayList<Object>) dbobj.get("year");
