@@ -174,7 +174,7 @@ public class CULHUCPrecipToReservoirs
 //AW:TIMESLICE
 
 	       debug3(comp.getName() + " - " + " BEGINNING OF doAWTimeSlice for period: " +
-	                _timeSliceBaseTime + " SDI: " + getSDI("input"));
+	                _timeSliceBaseTime + " SDI: " + getSDI("HUCPrecip"));
 
 	        SimpleDateFormat sdf = new SimpleDateFormat("dd-MM-yyyy HH:mm");
 	        sdf.setTimeZone(TimeZone.getTimeZone(DecodesSettings.instance().aggregateTimeZone));
