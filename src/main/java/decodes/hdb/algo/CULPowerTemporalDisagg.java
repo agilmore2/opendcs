@@ -45,6 +45,10 @@ public class CULPowerTemporalDisagg
         {
         		new PropertySpec("coeff_year", PropertySpec.INT,
                         "(1985) What year to read coefficients from, currently unused!"),
+				new PropertySpec("estimation_process", PropertySpec.STRING,
+						"(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
+				new PropertySpec("fill_process", PropertySpec.STRING,
+						"(CU_FillMissing) Which loading application fills missing data that should be ignored."),
         };
 
 //AW:LOCALVARS_END
@@ -56,7 +60,9 @@ public class CULPowerTemporalDisagg
 
 //AW:PROPERTIES
     public long coeff_year = 1985;
-	String[] _propertyNames = { "coeff_year" };
+	public String estimation_process = "CU_Agg_Disagg";
+	public String fill_process = "CU_FillMissing";
+	String[] _propertyNames = { "coeff_year", "estimation_process", "fill_process" };
 //AW:PROPERTIES_END
 
 	// Allow javac to generate a no-args constructor.
@@ -134,13 +140,13 @@ public class CULPowerTemporalDisagg
         // Get IDs of compedit and cu_estimation process loading application
 		// For now, source data is anything that doesn't come from either of these loading apps
         query = "SELECT loading_application_id FROM hdb_loading_application"
-        		+ " WHERE loading_application_name = 'CU_FillMissing'";  
+        		+ " WHERE loading_application_name = '" + fill_process + "'";
 
         status = this.doQuery(query, dbobj, db);
         int fillMissingApp = Integer.valueOf((String) dbobj.get("loading_application_id"));
         
         query = "SELECT loading_application_id FROM hdb_loading_application"
-        		+ " WHERE loading_application_name = 'CU_Agg_Disagg'";  
+        		+ " WHERE loading_application_name = '" + estimation_process + "'";
 
         status = this.doQuery(query, dbobj, db);
         int estimationApp = Integer.valueOf((String) dbobj.get("loading_application_id"));
@@ -161,7 +167,7 @@ public class CULPowerTemporalDisagg
         ArrayList<Object> AnnualSourceData;
         if (count == 0) {
         	warning(comp.getAlgorithmName() + " Aborted: see following error message");
-        	warning("No annual values to disagg for SDI " + getSDI("input"));
+        	warning("No annual values to disagg for SDI " + getSDI("AnnualInput"));
         	return;
         }
         else if (count == 1) {

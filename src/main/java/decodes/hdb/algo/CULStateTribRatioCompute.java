@@ -235,26 +235,27 @@ public class CULStateTribRatioCompute
         DBAccess db = new DBAccess(conn);
         TimeSeriesDAI dao = tsdb.makeTimeSeriesDAO();
 
-        String select_clause = "SELECT avg(CASE WHEN t.total = 0 THEN 0 ELSE s.value/t.total END) AS ratio ";
+        String select_clause = "SELECT avg(CASE WHEN t.total = 0 THEN 0 ELSE nvl(s.value,0)/t.total END) AS ratio ";
 
         if (rounding)
         {
-            select_clause = "SELECT round(avg(CASE WHEN t.total = 0 THEN 0 ELSE s.value/t.total END),11) AS ratio "; // 7 used by other HDB aggregates, these values get small though!
+            select_clause = "SELECT round(avg(CASE WHEN t.total = 0 THEN 0 ELSE nvl(s.value,0)/t.total END),11) AS ratio "; // 7 used by other HDB aggregates, these values get small though!
         }
 
         query = " with s as " +
-                "( select vals.value, peer.site_id, EXTRACT(YEAR FROM vals.start_date_time) yr " +
+                "( select vals.value, peer.site_id, EXTRACT(YEAR FROM yrs.date_time) yr " +
                 "from " +
-                "r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig " +
+                "r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig, " +
+                "table(dates_between( DATE '" + src_startyr + "-01-01', DATE '" + src_endyr + "-01-01','year')) yrs " +
                 "where " +
-                "vals.site_datatype_id = peersd.site_datatype_id and peersd.site_id = peer.site_id and  " +
+                "vals.site_datatype_id(+) = peersd.site_datatype_id and peersd.site_id = peer.site_id and " +
                 "trigsd.site_id = trig.site_id and peer.basin_id = trig.basin_id and " +
                 "trig.objecttype_id = peer.objecttype_id and " +
                 "trigsd.datatype_id = peersd.datatype_id and " +
                 "trigsd.site_datatype_id = " + inputSDI + " and " +
-                "EXTRACT(YEAR FROM vals.start_date_time) between " + src_startyr + " AND " + src_endyr + " " +
+                "vals.start_date_time(+) = yrs.date_time " +
                 "), t as " +
-                "(select yr, sum(s.value) total from s group by yr) " +
+                "(select yr, nvl(SUM(s.value),0) total from s group by yr) " +
                 select_clause +
                 ", outts.ts_id ts " +
                 "from s, t, hdb_site_datatype outsd, hdb_site_datatype ratiosd, cp_ts_id outts " +
