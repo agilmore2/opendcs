@@ -48,7 +48,7 @@ public class CULStaticCoeffTemporalDisagg
 //AW:LOCALVARS
 
 	double[] coeffs;
-	private static final Pattern stringPattern = Pattern.compile("^[\\w\\h,()]+$"); //only alphanumeric+_, () and spaces allowed
+	private static final Pattern stringPattern = Pattern.compile("^[\\w\\h,()]*$"); //only alphanumeric+_, () and spaces allowed
 
 	PropertySpec[] specs =
         {

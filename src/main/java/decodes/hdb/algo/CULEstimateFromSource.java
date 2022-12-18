@@ -92,7 +92,7 @@ public class CULEstimateFromSource
     Connection conn = null;
     String siteEndDate;
 
-    private static final Pattern loadappPattern = Pattern.compile("^\\w+$"); //only alphanumeric+_ allowed
+    private static final Pattern loadappPattern = Pattern.compile("^\\w*$"); //only alphanumeric+_ allowed
 
     PropertySpec[] specs =
             {

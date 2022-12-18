@@ -75,7 +75,7 @@ public class CULFillMissingTSDatatypeMap
 	DataObject dbobj;
 	TimeSeriesDAI dao = null;
 	HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
-	private static final Pattern mapPattern = Pattern.compile("^[\\w\\h]+$"); //only alphanumeric+_, and spaces allowed
+	private static final Pattern mapPattern = Pattern.compile("^[\\w\\h]*$"); //only alphanumeric+_, and spaces allowed
 
 
 	PropertySpec[] specs = 

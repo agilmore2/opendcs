@@ -79,7 +79,7 @@ public class CULSourceDistributionComputeAlg
     boolean do_setoutput = true;
     Connection conn = null;
 
-    private static final Pattern loadappPattern = Pattern.compile("^\\w+$"); //only alphanumeric+_ allowed
+    private static final Pattern loadappPattern = Pattern.compile("^\\w*$"); //only alphanumeric+_ allowed
 
     PropertySpec[] specs =
             {
