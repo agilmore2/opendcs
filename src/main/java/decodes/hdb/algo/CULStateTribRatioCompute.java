@@ -17,6 +17,7 @@ import opendcs.dai.TimeSeriesDAI;
 
 import java.sql.Connection;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static decodes.tsdb.VarFlags.TO_WRITE;
 import static java.lang.Math.abs;
@@ -37,6 +38,7 @@ import static java.lang.Math.abs;
  src_startyr: start year of source data used to calculate disagg coefficients, Default 1976
  end_startyr: start year of source data used to calculate disagg coefficients, Default 1985
  coeff_year: what year to write coefficients into, default 1985
+ zeroSites: which sites to force to a ratio of 0 because they didn't exist in the disagg period, default "null"
 
  Algorithm is as follows:
  query average ratio of one timeseries to the total
@@ -45,7 +47,7 @@ import static java.lang.Math.abs;
 
  working SQL query to compute data:
  with s as
- ( select vals.value, peer.site_id, EXTRACT(YEAR FROM vals.start_date_time) yr
+ ( select when peer.site_name in ('Crystal') then 0 else vals.value end value, peer.site_id, EXTRACT(YEAR FROM vals.start_date_time) yr
  from
  r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig
  where
@@ -79,7 +81,7 @@ public class CULStateTribRatioCompute
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double input;	//AW:TYPECODE=i
+    public double input;    //AW:TYPECODE=i
     String[] _inputNames = { "input" };
 //AW:INPUTS_END
 
@@ -91,6 +93,7 @@ public class CULStateTribRatioCompute
     Connection conn = null;
     TimeSeriesDAI dao;
     HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
+    private static final Pattern sitePattern = Pattern.compile("^[',\\w]*$"); //only alphanumeric+_', allowed
 
     PropertySpec[] specs =
             {
@@ -100,10 +103,12 @@ public class CULStateTribRatioCompute
                             "(empty) Always set this validation flag in the output."),
                     new PropertySpec("flags", PropertySpec.STRING,
                             "(empty) Always set these dataflags in the output."),
+                    new PropertySpec("zeroSites", PropertySpec.STRING,
+                            "(null) Set these sites to a ratio of zero, for sites that didn't exist in the disagg period."),
                     new PropertySpec("src_startyr", PropertySpec.INT,
-                    		"(1986) Start year of source data used to calculate disagg coefficients"),
+                            "(1986) Start year of source data used to calculate disagg coefficients"),
                     new PropertySpec("src_endyr", PropertySpec.INT,
-                    		"(1995) End year of source data used to calculate disagg coefficients"),
+                            "(1995) End year of source data used to calculate disagg coefficients"),
                     new PropertySpec("coeff_year", PropertySpec.INT,
                             "(1985) What year to write coefficients into"),
             };
@@ -124,8 +129,9 @@ public class CULStateTribRatioCompute
     public long src_startyr = 1986;
     public long src_endyr = 1995;
     public String flags = "";
+    public String zeroSites = "null";
 
-    String[] _propertyNames = { "validation_flag", "rounding", "coeff_year", "flags", "src_startyr", "src_endyr" };
+    String[] _propertyNames = { "validation_flag", "rounding", "coeff_year", "flags", "zeroSites", "src_startyr", "src_endyr" };
 //AW:PROPERTIES_END
 
     // Allow javac to generate a no-args constructor.
@@ -155,7 +161,9 @@ public class CULStateTribRatioCompute
         // For TimeSlice algorithms this is done once before all slices.
         // For Aggregating algorithms, this is done before each aggregate
         // period.
-
+        if ( !sitePattern.matcher( zeroSites ).matches()) {
+            throw new DbCompException("zeroSites property not valid: " + zeroSites);
+        }
         query = null;
         do_setoutput = true;
         conn = null;
@@ -243,7 +251,8 @@ public class CULStateTribRatioCompute
         }
 
         query = " with s as " +
-                "( select vals.value, peer.site_id, EXTRACT(YEAR FROM yrs.date_time) yr " +
+                "( select case when peer.site_name in (" + zeroSites + ") then 0 else vals.value end value, " +
+                "peer.site_id, EXTRACT(YEAR FROM yrs.date_time) yr " +
                 "from " +
                 "r_year vals, hdb_site_datatype peersd, hdb_site peer, hdb_site_datatype trigsd, hdb_site trig, " +
                 "table(dates_between( DATE '" + src_startyr + "-01-01', DATE '" + src_endyr + "-01-01','year')) yrs " +

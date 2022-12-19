@@ -67,7 +67,7 @@ public class CULSourceDistributionComputeAlg
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double input;	//AW:TYPECODE=i
+    public double input;    //AW:TYPECODE=i
     String[] _inputNames = { "input" };
 //AW:INPUTS_END
 

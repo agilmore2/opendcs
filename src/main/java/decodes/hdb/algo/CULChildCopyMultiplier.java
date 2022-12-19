@@ -66,7 +66,7 @@ public class CULChildCopyMultiplier
     public static final String INPUT = "input";
     public static final String DATATYPE = "datatype";
     //AW:INPUTS
-    public double input;	//AW:TYPECODE=i
+    public double input;    //AW:TYPECODE=i
     public double datatype; //AW:TYPECODE=i
     String[] _inputNames = { INPUT, DATATYPE };
 //AW:INPUTS_END

@@ -63,9 +63,9 @@ public class CULEstimateCUFromPopulation
     long estPopDI;
     long estCUDI;
     long curCUDI;
-    public double est_mi_cu;	//AW:TYPECODE=i
-    public double est_pop;	//AW:TYPECODE=i
-    public double cur_pop;	//AW:TYPECODE=i
+    public double est_mi_cu;    //AW:TYPECODE=i
+    public double est_pop;    //AW:TYPECODE=i
+    public double cur_pop;    //AW:TYPECODE=i
 
     String[] _inputNames = {EST_MI_CU, EST_POP, CUR_POP};
 //AW:INPUTS_END

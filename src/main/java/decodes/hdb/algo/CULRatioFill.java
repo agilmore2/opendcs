@@ -69,8 +69,8 @@ public class CULRatioFill
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double total;	//AW:TYPECODE=i
-    public double ratio;	//AW:TYPECODE=i
+    public double total;    //AW:TYPECODE=i
+    public double ratio;    //AW:TYPECODE=i
     String[] _inputNames = { "total", "ratio" };
 //AW:INPUTS_END
 

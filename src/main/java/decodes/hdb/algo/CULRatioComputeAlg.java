@@ -70,8 +70,8 @@ public class CULRatioComputeAlg
         extends decodes.tsdb.algo.AW_AlgorithmBase
 {
     //AW:INPUTS
-    public double sector1;	//AW:TYPECODE=i
-    public double sector2;	//AW:TYPECODE=i
+    public double sector1;    //AW:TYPECODE=i
+    public double sector2;    //AW:TYPECODE=i
     String[] _inputNames = { "sector1", "sector2" };
 //AW:INPUTS_END
 
@@ -95,9 +95,9 @@ public class CULRatioComputeAlg
                     new PropertySpec("estimation_process", PropertySpec.STRING,
                             "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored along with CU_FillMissing."),
                     new PropertySpec("src_startyr", PropertySpec.INT,
-                    		"(1976) Start year of source data used to calculate disagg coefficients"),
+                            "(1976) Start year of source data used to calculate disagg coefficients"),
                     new PropertySpec("src_endyr", PropertySpec.INT,
-                    		"(1985) End year of source data used to calculate disagg coefficients"),                    
+                            "(1985) End year of source data used to calculate disagg coefficients"),                    
                     new PropertySpec("coeff_year", PropertySpec.INT,
                             "(1985) What year to write coefficients into"),
             };
