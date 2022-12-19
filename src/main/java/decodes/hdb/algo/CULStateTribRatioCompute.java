@@ -93,7 +93,7 @@ public class CULStateTribRatioCompute
     Connection conn = null;
     TimeSeriesDAI dao;
     HashMap<String, CTimeSeries> outputSeries = new HashMap<>();
-    private static final Pattern sitePattern = Pattern.compile("^[',\\w]*$"); //only alphanumeric+_', allowed
+    private static final Pattern siteListPattern = Pattern.compile("^[-',\\w ]*$"); //only alphanumeric+_'- , allowed
 
     PropertySpec[] specs =
             {
@@ -161,7 +161,7 @@ public class CULStateTribRatioCompute
         // For TimeSlice algorithms this is done once before all slices.
         // For Aggregating algorithms, this is done before each aggregate
         // period.
-        if ( !sitePattern.matcher( zeroSites ).matches()) {
+        if ( !siteListPattern.matcher( zeroSites ).matches()) {
             throw new DbCompException("zeroSites property not valid: " + zeroSites);
         }
         query = null;

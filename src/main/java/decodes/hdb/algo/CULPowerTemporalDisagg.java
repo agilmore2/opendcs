@@ -45,12 +45,12 @@ public class CULPowerTemporalDisagg
 
     PropertySpec[] specs =
         {
-                new PropertySpec("coeff_year", PropertySpec.INT,
-                        "(1985) What year to read coefficients from, currently unused!"),
-                new PropertySpec("estimation_process", PropertySpec.STRING,
-                        "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
-                new PropertySpec("fill_process", PropertySpec.STRING,
-                        "(CU_FillMissing) Which loading application fills missing data that should be ignored."),
+            new PropertySpec("coeff_year", PropertySpec.INT,
+                    "(1985) What year to read coefficients from, currently unused!"),
+            new PropertySpec("estimation_process", PropertySpec.STRING,
+                    "(CU_Agg_Disagg) Which loading application produces estimates that should be ignored."),
+            new PropertySpec("fill_process", PropertySpec.STRING,
+                    "(CU_FillMissing) Which loading application fills missing data that should be ignored."),
         };
 
 //AW:LOCALVARS_END
@@ -225,9 +225,10 @@ public class CULPowerTemporalDisagg
                     + " AND loading_application_id != " + fillMissingApp
                     + " AND loading_application_id != " + estimationApp
                     + " ORDER BY EXTRACT(MONTH FROM start_date_time) ASC";
-            this.doQuery(query, dbobj, db);
-            
-            // Volume to distribute is the difference between the annual source point and sum of monthly source points
+            status = this.doQuery(query, dbobj, db);
+            debug3(comp.getName() + ": " + query + ": " + status);
+
+                    // Volume to distribute is the difference between the annual source point and sum of monthly source points
             // Monthly volume (for months without source data) = Volume to distribute * monthly coefficient / sum of monthly coefficients w/o source data
             ArrayList<Object> monthlySourceData = null;
             ArrayList<Object> monthlySourceMonths = null;
@@ -262,7 +263,9 @@ public class CULPowerTemporalDisagg
                 {
                     cal.set(yr, m - 1,1,0,0);
                     double coeff = Double.valueOf(monthlyCoefficients.get(m - 1).toString());
-                    setOutput(MonthlyOutput,(annualSourceVal - monthlySourceSum) * coeff / monthlyCoefficientSum,cal.getTime());
+                    double out  = (annualSourceVal - monthlySourceSum) * coeff / monthlyCoefficientSum;
+                    debug3(comp.getName() + ": Setting output: " + out + " sdi: " + MonthlyOutput.toString() + " time: " + debugSdf.format(cal.getTime()));
+                    setOutput(MonthlyOutput, out, cal.getTime());
                 }
             }
                                     
