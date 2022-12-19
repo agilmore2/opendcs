@@ -27,7 +27,7 @@ public class FractionComputeDisaggAlg
     public static final String TOTAL = "total";
     public static final String OUTPUT = "output";
     //AW:INPUTS
-    public double total;	//AW:TYPECODE=i
+    public double total;    //AW:TYPECODE=i
     String[] _inputNames = { TOTAL };
 //AW:INPUTS_END
 

@@ -284,11 +284,11 @@ public class DynamicSpatialRelationAlg
             throws DbCompException
     {
 //AW:TIMESLICE
-	    if (outputSeries.isEmpty())
-	    {
-	    	return;
-	    }
-    	
+        if (outputSeries.isEmpty())
+        {
+            return;
+        }
+
         debug3(comp.getName() + "-" + alg_ver + " BEGINNING OF doAWTimeSlice for period: " +
                 _timeSliceBaseTime + " SDI: " + getSDI("input"));
 
@@ -379,11 +379,11 @@ public class DynamicSpatialRelationAlg
         // For TimeSlice algorithms this is done once after all slices.
         // For Aggregating algorithms, this is done after each aggregate
         // period.
-    	
-	    if (outputSeries.isEmpty())
-	    {
-	    	return;
-	    }
+
+        if (outputSeries.isEmpty())
+        {
+            return;
+        }
 
         // set the outputs. If some timesteps failed, must be marked for delete above
         for (CTimeSeries v : outputSeries.values()) {

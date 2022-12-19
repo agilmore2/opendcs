@@ -372,7 +372,7 @@ public class DynamicSpatialAggregateAlg
         // set the outputs. If some timesteps failed, they will be marked for delete and be deleted here.
         try {
             debug1(comp.getName() + "-" + alg_ver + "saving timeseries: " + outputSeries.getBriefDescription());
-    		outputSeries.setComputationId(comp.getId());
+            outputSeries.setComputationId(comp.getId());
             dao.saveTimeSeries(outputSeries);
         } catch (DbIoException | BadTimeSeriesException e) {
             warning("Exception during saving output to database:" + e);
