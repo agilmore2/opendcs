@@ -283,7 +283,7 @@ public class DynamicSpatialAggregateAlg
         if (!foundPeers)
         {
             outputSeries = null;
-            throw new DbCompException(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + output_site_method);
+            throw new DbCompException(comp.getName() + "-" + alg_ver + " Aborted: peer_site_method property incorrect! " + peer_site_method);
         }
 
         selectClause = " SELECT sum(VALUE) value FROM t";
