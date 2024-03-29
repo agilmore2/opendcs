@@ -51,8 +51,7 @@ import static decodes.tsdb.VarFlags.TO_WRITE;
  datasd.datatype_id = outsd.datatype_id and
  outsd.site_datatype_id = outts.site_datatype_id and
  outts.interval = 'month' AND
- outts.table_selector = 'R_' AND
- outsd.site_datatype_id = r.site_datatype_id
+ outts.table_selector = 'R_'
 
  input value will be produced by CP and multiplied in doAWTimeSlice and stored in outputTimeseries
 
