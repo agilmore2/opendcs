@@ -28,10 +28,11 @@ Dependent values are "storage" and "area".
 variableM controls whether the
 constantM value provides the exponent
 or if it is found in a rating table.
+rounding value provides the decimals of rounding to apply, new ACAPS tables give 0.01 AF precision
 Equations are
 diff=elevation-Y0 from A0 lookup.
-A=round((A1 + M*A2*diff),2)
-S=round((A0 + A1*diff + A2*Math.pow(diff,M)),2)
+A=A1 + M*A2*diff
+S=A0 + A1*diff + A2*Math.pow(diff,M)
  */
 //AW:JAVADOC_END
 public class HdbACAPSRating
@@ -62,7 +63,8 @@ public class HdbACAPSRating
 	//does not work at all when below lowest value, and maximum value is undefined 
 	public double constantM = 2.0;
 	public boolean variableM = false;
-	String _propertyNames[] = { "constantM", "variableM" };
+	public int rounding = 2;
+	String _propertyNames[] = { "constantM", "variableM", "rounding" };
 //AW:PROPERTIES_END
 
     private PropertySpec ACAPSRatingPropertySpecs[] =
@@ -71,6 +73,8 @@ public class HdbACAPSRating
 			"(default=2) If variableM==false, then this number provides a constant M exponent for all equations."),
 		new PropertySpec("variableM", PropertySpec.BOOLEAN,
 			"(default=false) Set to true to use a separate M rating table rather than the constant.")
+		new PropertySpec("rounding", PropertySpec.INT,
+			"(default=2) Decimal places of rounding to preserve.")
 	};
 	@Override
 	protected PropertySpec[] getAlgoPropertySpecs()
@@ -162,9 +166,9 @@ public class HdbACAPSRating
 			}
 
 			//See Documents from Rick Clayton on these equations.
-			double loc_storage = round((A0 + A1*diff + A2*Math.pow(diff,M)),2);
+			double loc_storage = round((A0 + A1*diff + A2*Math.pow(diff,M)), rounding);
 
-			double loc_area = round((A1 + M*A2*Math.pow(diff,M-1.0)),2);
+			double loc_area = round((A1 + M*A2*Math.pow(diff,M-1.0)), rounding);
 
 			setOutput(storage, loc_storage);
 			setOutput(area, loc_area);
