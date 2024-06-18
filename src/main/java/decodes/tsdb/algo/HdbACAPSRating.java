@@ -72,7 +72,7 @@ public class HdbACAPSRating
 		new PropertySpec("constantM", PropertySpec.NUMBER,
 			"(default=2) If variableM==false, then this number provides a constant M exponent for all equations."),
 		new PropertySpec("variableM", PropertySpec.BOOLEAN,
-			"(default=false) Set to true to use a separate M rating table rather than the constant.")
+			"(default=false) Set to true to use a separate M rating table rather than the constant."),
 		new PropertySpec("rounding", PropertySpec.INT,
 			"(default=2) Decimal places of rounding to preserve.")
 	};
