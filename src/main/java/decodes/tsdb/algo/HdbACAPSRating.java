@@ -63,7 +63,7 @@ public class HdbACAPSRating
 	//does not work at all when below lowest value, and maximum value is undefined 
 	public double constantM = 2.0;
 	public boolean variableM = false;
-	public int rounding = 2;
+	public long rounding = 2;
 	String _propertyNames[] = { "constantM", "variableM", "rounding" };
 //AW:PROPERTIES_END
 
@@ -74,7 +74,7 @@ public class HdbACAPSRating
 		new PropertySpec("variableM", PropertySpec.BOOLEAN,
 			"(default=false) Set to true to use a separate M rating table rather than the constant."),
 		new PropertySpec("rounding", PropertySpec.INT,
-			"(default=2) Decimal places of rounding to preserve.")
+			"(default=2) Decimal places of rounding to apply to storage output.")
 	};
 	@Override
 	protected PropertySpec[] getAlgoPropertySpecs()
@@ -166,9 +166,9 @@ public class HdbACAPSRating
 			}
 
 			//See Documents from Rick Clayton on these equations.
-			double loc_storage = round((A0 + A1*diff + A2*Math.pow(diff,M)), rounding);
+			double loc_storage = round((A0 + A1*diff + A2*Math.pow(diff,M)), (int) rounding);
 
-			double loc_area = round((A1 + M*A2*Math.pow(diff,M-1.0)), rounding);
+			double loc_area = round((A1 + M*A2*Math.pow(diff,M-1.0)), 2);
 
 			setOutput(storage, loc_storage);
 			setOutput(area, loc_area);
