@@ -896,8 +896,8 @@ format statements. These format statements consist of two parts:
 2. a *statement* containing a sequence of format operations.
 
 Within a statement, the format operations are separated from each other
-by commas. You enter format statements within the Decoding Script Edit
-Dialog, described in section 5.1.1.
+by commas. You enter format statements within the :ref:`decoding-scripts<Decoding Script Edit
+Dialog>`.
 
 Execution of Format Statements
 ------------------------------
