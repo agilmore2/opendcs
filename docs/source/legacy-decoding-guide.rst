@@ -1271,15 +1271,15 @@ The field type can be one of the following:
 
    TZ Time Zone Field
 
-   TI Time Interval Field (see 7.10.1)
+   TI Time Interval Field (see :ref:`time-interval-fields`)
 
-   MINT Minute Interval Field (see 7.10.2)
+   MINT Minute Interval Field (see :ref:`minute-interval-and-offset-fields`)
 
-   MOFF Minute Offset Field (see 7.10.2)
+   MOFF Minute Offset Field (see :ref:`minute-interval-and-offset-fields`)
 
-   F Format Label Field (see 0)
+   F Format Label Field (see :ref:`format-label-fields`)
 
-   S Sensor Value Field (see 7.10.4)
+   S Sensor Value Field (see :ref:`sensor-value-fields`)
 
    MHD Message Header Date (see :ref:`decodes.format.field.message_header`)
 
